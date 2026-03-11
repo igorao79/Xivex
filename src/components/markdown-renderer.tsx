@@ -50,6 +50,25 @@ const components: Components = {
   td: ({ children }) => (
     <td className="border-t px-4 py-2">{children}</td>
   ),
+  img: ({ src, alt }) => (
+    <span className="my-4 block">
+      <img
+        src={src}
+        alt={alt || ""}
+        loading="lazy"
+        className="rounded-lg border max-h-[300px] w-auto object-contain"
+        onError={(e) => {
+          const wrapper = (e.target as HTMLImageElement).parentElement;
+          if (wrapper) wrapper.style.display = "none";
+        }}
+      />
+      {alt && (
+        <span className="mt-1.5 block text-xs text-muted-foreground italic">
+          {alt}
+        </span>
+      )}
+    </span>
+  ),
   a: ({ children, href }) => (
     <a
       href={href}

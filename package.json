@@ -24,6 +24,7 @@
     "groq-sdk": "^1.1.1",
     "lucide-react": "^0.577.0",
     "mammoth": "^1.11.0",
+    "motion": "^12.35.2",
     "next": "^16.1.6",
     "pdf-parse": "^1.1.1",
     "postcss": "^8.5.8",

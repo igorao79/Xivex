@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { parseDocument } from "@/lib/parsers";
 import { storeDocument } from "@/lib/store";
-import { generateReport } from "@/lib/groq";
+import { generateReport, extractSearchQueries } from "@/lib/groq";
+import { searchForTopics } from "@/lib/search";
 
 export const maxDuration = 60;
 
@@ -29,14 +30,29 @@ export async function POST(request: NextRequest) {
 
     const doc = storeDocument(id, parsed);
 
-    // Generate initial report
-    const report = await generateReport(parsed.text, file.name);
+    // Run report generation and search query extraction in parallel
+    const [report, queries] = await Promise.all([
+      generateReport(parsed.text, file.name),
+      extractSearchQueries(parsed.text, file.name),
+    ]);
+
+    // Search for articles and images using extracted queries
+    let searchData = { articles: [] as any[], images: [] as any[] };
+    if (queries.length > 0) {
+      try {
+        searchData = await searchForTopics(queries);
+      } catch (err) {
+        console.error("Search error (non-critical):", err);
+      }
+    }
 
     return NextResponse.json({
       id: doc.id,
       metadata: doc.parsed.metadata,
       chunksCount: doc.chunks.length,
       report,
+      articles: searchData.articles,
+      images: searchData.images,
     });
   } catch (error) {
     console.error("Upload error:", error);

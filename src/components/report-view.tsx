@@ -1,6 +1,6 @@
 "use client";
 
-import { FileText, Download, Clock, Hash, FileType } from "lucide-react";
+import { FileText, Download, Clock, Hash, FileType, MessageSquare, ExternalLink, Image as ImageIcon, BookOpen } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { MarkdownRenderer } from "./markdown-renderer";
@@ -14,9 +14,25 @@ interface DocumentMetadata {
   wordCount: number;
 }
 
+interface SearchArticle {
+  title: string;
+  url: string;
+  snippet: string;
+}
+
+interface SearchImage {
+  title: string;
+  url: string;
+  image: string;
+  thumbnail: string;
+}
+
 interface ReportViewProps {
   report: string;
   metadata: DocumentMetadata;
+  articles?: SearchArticle[];
+  images?: SearchImage[];
+  onAskQuestion?: (question: string) => void;
 }
 
 function formatFileSize(bytes: number): string {
@@ -25,7 +41,31 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function ReportView({ report, metadata }: ReportViewProps) {
+function extractQuestions(report: string): string[] {
+  const questionsMatch = report.match(
+    /##\s*Potential Questions[\s\S]*?(?=\n##|$)/i
+  );
+  if (!questionsMatch) return [];
+
+  const lines = questionsMatch[0].split("\n");
+  const questions: string[] = [];
+  for (const line of lines) {
+    const match = line.match(/^\d+\.\s+(.+)/);
+    if (match) {
+      questions.push(match[1].trim().replace(/\*\*/g, ""));
+    }
+  }
+  return questions;
+}
+
+function reportWithoutQuestions(report: string): string {
+  return report.replace(/##\s*Potential Questions[\s\S]*?(?=\n##|$)/i, "").trim();
+}
+
+export function ReportView({ report, metadata, articles, images, onAskQuestion }: ReportViewProps) {
+  const questions = extractQuestions(report);
+  const cleanReport = questions.length > 0 ? reportWithoutQuestions(report) : report;
+
   return (
     <div className="space-y-6">
       {/* Document info card */}
@@ -74,9 +114,127 @@ export function ReportView({ report, metadata }: ReportViewProps) {
         </CardHeader>
         <Separator />
         <CardContent className="pt-6">
-          <MarkdownRenderer content={report} />
+          <MarkdownRenderer content={cleanReport} />
         </CardContent>
       </Card>
+
+      {/* Images from web search */}
+      {images && images.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <ImageIcon className="size-5 text-primary" />
+              Related Images
+            </CardTitle>
+          </CardHeader>
+          <Separator />
+          <CardContent className="pt-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {images.map((img, i) => (
+                <a
+                  key={i}
+                  href={img.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group relative overflow-hidden rounded-lg border bg-muted transition-all hover:border-primary/40 hover:shadow-md"
+                >
+                  <div className="aspect-[4/3] overflow-hidden">
+                    <img
+                      src={img.thumbnail || img.image}
+                      alt={img.title}
+                      loading="lazy"
+                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).closest("a")!.style.display = "none";
+                      }}
+                    />
+                  </div>
+                  <div className="p-2">
+                    <p className="line-clamp-2 text-xs text-muted-foreground">
+                      {img.title}
+                    </p>
+                  </div>
+                </a>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Related articles from web search */}
+      {articles && articles.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <BookOpen className="size-5 text-primary" />
+              Related Articles
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Found across the web — real sources related to your document
+            </p>
+          </CardHeader>
+          <Separator />
+          <CardContent className="pt-4">
+            <div className="flex flex-col gap-3">
+              {articles.map((article, i) => (
+                <a
+                  key={i}
+                  href={article.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group rounded-lg border p-4 transition-all hover:border-primary/40 hover:bg-accent/50 hover:shadow-sm"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <h4 className="font-medium text-sm group-hover:text-primary transition-colors line-clamp-1">
+                        {article.title}
+                      </h4>
+                      {article.snippet && (
+                        <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
+                          {article.snippet}
+                        </p>
+                      )}
+                      <p className="mt-1.5 text-xs text-muted-foreground/70 truncate">
+                        {new URL(article.url).hostname}
+                      </p>
+                    </div>
+                    <ExternalLink className="size-4 shrink-0 text-muted-foreground group-hover:text-primary transition-colors mt-0.5" />
+                  </div>
+                </a>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Interactive questions */}
+      {questions.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <MessageSquare className="size-5 text-primary" />
+              Dive Deeper
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Click a question to ask it in the chat
+            </p>
+          </CardHeader>
+          <Separator />
+          <CardContent className="pt-4">
+            <div className="flex flex-col gap-2">
+              {questions.map((q, i) => (
+                <button
+                  key={i}
+                  onClick={() => onAskQuestion?.(q)}
+                  className="rounded-lg border px-4 py-3 text-left text-sm cursor-pointer hover:bg-accent hover:border-primary/30 active:scale-[0.98] active:bg-accent/80 transition-all duration-150"
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
