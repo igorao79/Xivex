@@ -1,0 +1,120 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.5 0.155 265);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.965 0.005 265);
+  --secondary-foreground: oklch(0.205 0.015 265);
+  --muted: oklch(0.965 0.005 265);
+  --muted-foreground: oklch(0.556 0.02 265);
+  --accent: oklch(0.965 0.005 265);
+  --accent-foreground: oklch(0.205 0.015 265);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0.005 265);
+  --input: oklch(0.922 0.005 265);
+  --ring: oklch(0.5 0.155 265);
+}
+
+.dark {
+  --background: oklch(0.12 0.01 265);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.16 0.012 265);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.16 0.012 265);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.65 0.18 265);
+  --primary-foreground: oklch(0.12 0.01 265);
+  --secondary: oklch(0.22 0.015 265);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.22 0.015 265);
+  --muted-foreground: oklch(0.7 0.02 265);
+  --accent: oklch(0.22 0.015 265);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.26 0.015 265);
+  --input: oklch(0.26 0.015 265);
+  --ring: oklch(0.65 0.18 265);
+}
+
+* {
+  border-color: var(--border);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+/* Global interactive styles — cursor + active press + focus ring */
+button,
+[role="button"],
+a,
+[tabindex="0"],
+input[type="submit"],
+input[type="button"],
+select,
+summary {
+  cursor: pointer;
+}
+
+button:not(:disabled):active,
+[role="button"]:not(:disabled):active,
+a:active {
+  transform: scale(0.97);
+  transition: transform 0.1s ease;
+}
+
+button:not(:disabled):focus-visible,
+[role="button"]:not(:disabled):focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted-foreground);
+}
+
+/* Animations */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.4s ease-out;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, var(--muted) 25%, var(--accent) 50%, var(--muted) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
