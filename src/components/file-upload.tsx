@@ -4,6 +4,7 @@ import { useCallback } from "react";
 import { useDropzone } from "react-dropzone";
 import { Upload, FileText, FileSpreadsheet, File } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n";
 
 interface FileUploadProps {
   onFileUpload: (file: File) => void;
@@ -33,6 +34,8 @@ function getFileIcon(fileName: string) {
 }
 
 export function FileUpload({ onFileUpload, isUploading, progress }: FileUploadProps) {
+  const { t } = useI18n();
+
   const onDrop = useCallback(
     (acceptedFiles: File[]) => {
       if (acceptedFiles.length > 0 && !isUploading) {
@@ -42,7 +45,7 @@ export function FileUpload({ onFileUpload, isUploading, progress }: FileUploadPr
     [onFileUpload, isUploading]
   );
 
-  const { getRootProps, getInputProps, isDragActive, acceptedFiles } = useDropzone({
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: ACCEPTED_TYPES,
     maxFiles: 1,
@@ -86,7 +89,7 @@ export function FileUpload({ onFileUpload, isUploading, progress }: FileUploadPr
             </span>
           </div>
           <p className="text-sm text-muted-foreground animate-pulse">
-            Анализируем документ...
+            {t.analyzing}
           </p>
         </div>
       ) : (
@@ -95,10 +98,10 @@ export function FileUpload({ onFileUpload, isUploading, progress }: FileUploadPr
             <Upload className="size-8 text-primary" />
           </div>
           <p className="mb-1 text-lg font-semibold">
-            {isDragActive ? "Отпустите файл здесь" : "Загрузите документ"}
+            {isDragActive ? t.uploadDrop : t.uploadTitle}
           </p>
           <p className="text-sm text-muted-foreground text-center max-w-xs">
-            Перетащите или нажмите для выбора. Поддерживает PDF, DOCX, XLSX, CSV, TXT, MD, JSON, HTML, XML
+            {t.uploadHint}
           </p>
           <div className="mt-4 flex gap-2 flex-wrap justify-center">
             {[".pdf", ".docx", ".xlsx", ".csv", ".txt"].map((ext) => (

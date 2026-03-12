@@ -7,6 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { MarkdownRenderer } from "./markdown-renderer";
 import type { Message } from "@/hooks/use-chat";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n";
 
 interface ChatInterfaceProps {
   messages: Message[];
@@ -23,6 +24,7 @@ export function ChatInterface({
   onClear,
   suggestedQuestions = [],
 }: ChatInterfaceProps) {
+  const { t } = useI18n();
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -54,12 +56,12 @@ export function ChatInterface({
       <div className="flex items-center justify-between border-b px-4 py-3">
         <div className="flex items-center gap-2">
           <Bot className="size-5 text-primary" />
-          <h2 className="font-semibold">Чат с документом</h2>
+          <h2 className="font-semibold">{t.chatTitle}</h2>
         </div>
         {messages.length > 0 && (
           <Button variant="ghost" size="sm" onClick={onClear}>
             <Trash2 className="size-4" />
-            <span className="hidden sm:inline ml-1">Очистить</span>
+            <span className="hidden sm:inline ml-1">{t.chatClear}</span>
           </Button>
         )}
       </div>
@@ -72,9 +74,9 @@ export function ChatInterface({
               <Bot className="size-8 text-primary" />
             </div>
             <div className="text-center">
-              <p className="font-medium">Задайте любой вопрос по документу</p>
+              <p className="font-medium">{t.chatEmpty}</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Я найду ответы на основе содержимого документа
+                {t.chatEmptyHint}
               </p>
             </div>
             {suggestedQuestions.length > 0 && (
@@ -121,7 +123,7 @@ export function ChatInterface({
                   ) : (
                     <div className="flex items-center gap-2">
                       <Loader2 className="size-4 animate-spin" />
-                      <span className="text-sm text-muted-foreground">Думаю...</span>
+                      <span className="text-sm text-muted-foreground">{t.chatThinking}</span>
                     </div>
                   )}
                 </div>
@@ -145,7 +147,7 @@ export function ChatInterface({
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Задайте вопрос по документу..."
+              placeholder={t.chatPlaceholder}
               className="w-full resize-none rounded-xl border bg-background px-4 py-3 pr-12 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 min-h-[48px] max-h-[120px]"
               rows={1}
               disabled={isLoading}

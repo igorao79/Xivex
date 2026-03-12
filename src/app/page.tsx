@@ -9,8 +9,10 @@ import { FileUpload } from "@/components/file-upload";
 import { ChatInterface } from "@/components/chat-interface";
 import { ReportView } from "@/components/report-view";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { LocaleToggle } from "@/components/locale-toggle";
 import { RotatingText } from "@/components/rotating-text";
 import { useChat } from "@/hooks/use-chat";
+import { useI18n } from "@/lib/i18n";
 
 interface DocumentState {
   id: string;
@@ -25,17 +27,10 @@ interface DocumentState {
   articles: { title: string; url: string; snippet: string }[];
 }
 
-const SUGGESTED_QUESTIONS = [
-  "Какие основные темы рассматриваются в документе?",
-  "Кратко изложи ключевые выводы",
-  "Какие важные данные и цифры есть в документе?",
-  "Есть ли рекомендации или план действий?",
-  "Какие вопросы остались без ответа?",
-];
-
 const FILE_TYPES = [".PDF", ".DOCX", ".XLSX", ".CSV", ".TXT", ".MD", ".JSON", ".HTML"];
 
 export default function Home() {
+  const { t } = useI18n();
   const [document, setDocument] = useState<DocumentState | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -44,6 +39,8 @@ export default function Home() {
   const { messages, isLoading, sendMessage, clearMessages } = useChat(
     document?.id || null
   );
+
+  const suggestedQuestions = [t.sq1, t.sq2, t.sq3, t.sq4, t.sq5];
 
   const handleFileUpload = useCallback(async (file: File) => {
     setIsUploading(true);
@@ -82,18 +79,18 @@ export default function Home() {
       });
 
       setActiveTab("report");
-      toast.success("Документ успешно проанализирован!");
+      toast.success(t.uploadSuccess);
     } catch (error) {
       console.error("Upload error:", error);
       toast.error(
-        error instanceof Error ? error.message : "Не удалось загрузить документ"
+        error instanceof Error ? error.message : t.uploadError
       );
     } finally {
       clearInterval(progressInterval);
       setIsUploading(false);
       setUploadProgress(0);
     }
-  }, []);
+  }, [t]);
 
   const handleNewDocument = () => {
     setDocument(null);
@@ -125,9 +122,10 @@ export default function Home() {
                 onClick={handleNewDocument}
                 className="text-sm text-muted-foreground hover:text-foreground cursor-pointer active:scale-[0.97] transition-all duration-150"
               >
-                + Новый документ
+                {t.newDocument}
               </button>
             )}
+            <LocaleToggle />
             <ThemeToggle />
           </div>
         </div>
@@ -145,13 +143,13 @@ export default function Home() {
               className="mb-8 text-center"
             >
               <h1 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl">
-                Анализ любого{" "}
+                {t.heroPrefix}{" "}
                 <RotatingText
                   texts={FILE_TYPES}
                   rotationInterval={2600}
                   className="min-w-[4ch] justify-center"
                 />{" "}
-                с помощью ИИ
+                {t.heroSuffix}
               </h1>
               <motion.p
                 initial={{ y: 20, opacity: 0 }}
@@ -159,8 +157,7 @@ export default function Home() {
                 transition={{ duration: 0.6, delay: 0.3, ease: "easeOut" }}
                 className="mt-3 text-lg text-muted-foreground max-w-2xl mx-auto"
               >
-                Загрузите PDF, Word, таблицу или текстовый файл. Получите мгновенный
-                AI-отчёт и задайте дополнительные вопросы в чате.
+                {t.heroDesc}
               </motion.p>
             </motion.div>
 
@@ -189,12 +186,12 @@ export default function Home() {
               tabs={[
                 {
                   value: "report",
-                  label: "Отчёт",
+                  label: t.tabReport,
                   icon: <FileSearch className="size-4" />,
                 },
                 {
                   value: "chat",
-                  label: "Чат",
+                  label: t.tabChat,
                   icon: <MessageSquare className="size-4" />,
                   badge:
                     messages.length > 0 ? (
@@ -220,7 +217,6 @@ export default function Home() {
                   report={document.report}
                   metadata={document.metadata}
                   articles={document.articles}
-
                   onAskQuestion={(q) => {
                     sendMessage(q);
                     setActiveTab("chat");
@@ -243,7 +239,7 @@ export default function Home() {
                     isLoading={isLoading}
                     onSendMessage={sendMessage}
                     onClear={clearMessages}
-                    suggestedQuestions={SUGGESTED_QUESTIONS}
+                    suggestedQuestions={suggestedQuestions}
                   />
                 </div>
               </motion.div>

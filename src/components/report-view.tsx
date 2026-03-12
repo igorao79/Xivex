@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { MarkdownRenderer } from "./markdown-renderer";
 import { getFileIcon } from "./file-upload";
+import { useI18n } from "@/lib/i18n";
 
 interface DocumentMetadata {
   fileName: string;
@@ -65,6 +66,7 @@ function renumberImages(text: string): string {
 }
 
 export function ReportView({ report, metadata, articles, onAskQuestion }: ReportViewProps) {
+  const { t } = useI18n();
   const questions = extractQuestions(report);
   const stripped = questions.length > 0 ? reportWithoutQuestions(report) : report;
   const cleanReport = renumberImages(stripped);
@@ -89,17 +91,17 @@ export function ReportView({ report, metadata, articles, onAskQuestion }: Report
                 </span>
                 <span className="flex items-center gap-1">
                   <Hash className="size-3" />
-                  {metadata.wordCount.toLocaleString()} слов
+                  {metadata.wordCount.toLocaleString()} {t.words}
                 </span>
                 {metadata.pageCount && (
                   <span className="flex items-center gap-1">
                     <FileText className="size-3" />
-                    {metadata.pageCount} стр.
+                    {metadata.pageCount} {t.pages}
                   </span>
                 )}
                 <span className="flex items-center gap-1">
                   <Clock className="size-3" />
-                  Только что
+                  {t.justNow}
                 </span>
               </div>
             </div>
@@ -112,7 +114,7 @@ export function ReportView({ report, metadata, articles, onAskQuestion }: Report
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
             <FileText className="size-5 text-primary" />
-            Аналитический отчёт
+            {t.reportTitle}
           </CardTitle>
         </CardHeader>
         <Separator />
@@ -127,10 +129,10 @@ export function ReportView({ report, metadata, articles, onAskQuestion }: Report
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <BookOpen className="size-5 text-primary" />
-              Связанные статьи
+              {t.relatedArticles}
             </CardTitle>
             <p className="text-sm text-muted-foreground">
-              Найдено в интернете — реальные источники по теме документа
+              {t.relatedArticlesDesc}
             </p>
           </CardHeader>
           <Separator />
@@ -173,10 +175,10 @@ export function ReportView({ report, metadata, articles, onAskQuestion }: Report
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <MessageSquare className="size-5 text-primary" />
-              Узнать больше
+              {t.diveDeeper}
             </CardTitle>
             <p className="text-sm text-muted-foreground">
-              Нажмите на вопрос, чтобы задать его в чате
+              {t.diveDeeperDesc}
             </p>
           </CardHeader>
           <Separator />

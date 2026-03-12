@@ -2,12 +2,13 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "sonner";
+import { I18nProvider } from "@/lib/i18n";
 
 const inter = Inter({ subsets: ["latin", "cyrillic"] });
 
 export const metadata: Metadata = {
-  title: "Xivex — Умный анализ документов",
-  description: "Загрузите документ и получите AI-отчёт, затем задайте вопросы в чате.",
+  title: "Xivex — Smart Document Analysis",
+  description: "Upload documents and get AI-powered analysis, reports, and answers to your questions.",
 };
 
 export default function RootLayout({
@@ -32,7 +33,9 @@ export default function RootLayout({
         />
       </head>
       <body className={`${inter.className} antialiased`}>
-        {children}
+        <I18nProvider>
+          {children}
+        </I18nProvider>
         <Toaster position="top-center" richColors />
       </body>
     </html>
