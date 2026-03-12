@@ -115,7 +115,7 @@ export default function Home() {
               alt="Xivex"
               width={32}
               height={32}
-              className="size-8"
+              className="size-8 dark:invert-0 invert"
               priority
             />
             <span className="text-xl font-bold tracking-tight">
