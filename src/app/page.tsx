@@ -3,7 +3,8 @@
 import { useState, useCallback } from "react";
 import { toast } from "sonner";
 import { motion } from "motion/react";
-import { Sparkles, FileSearch, MessageSquare } from "lucide-react";
+import { FileSearch, MessageSquare } from "lucide-react";
+import Image from "next/image";
 import { AnimatedTabs } from "@/components/animated-tabs";
 import { FileUpload } from "@/components/file-upload";
 import { ChatInterface } from "@/components/chat-interface";
@@ -109,9 +110,14 @@ export default function Home() {
       >
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
           <div className="flex items-center gap-2">
-            <div className="rounded-lg bg-primary p-1.5">
-              <Sparkles className="size-5 text-primary-foreground" />
-            </div>
+            <Image
+              src="/logotip.webp"
+              alt="Xivex"
+              width={32}
+              height={32}
+              className="size-8"
+              priority
+            />
             <span className="text-xl font-bold tracking-tight">
               Xi<span className="text-primary">vex</span>
             </span>

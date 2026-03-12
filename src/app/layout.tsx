@@ -9,6 +9,9 @@ const inter = Inter({ subsets: ["latin", "cyrillic"] });
 export const metadata: Metadata = {
   title: "Xivex — Smart Document Analysis",
   description: "Upload documents and get AI-powered analysis, reports, and answers to your questions.",
+  icons: {
+    icon: "/favicon.ico",
+  },
 };
 
 export default function RootLayout({
