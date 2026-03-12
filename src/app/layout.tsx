@@ -6,8 +6,8 @@ import { Toaster } from "sonner";
 const inter = Inter({ subsets: ["latin", "cyrillic"] });
 
 export const metadata: Metadata = {
-  title: "Xivex — Smart Document Analysis",
-  description: "Upload documents and get AI-powered analysis, reports, and answers to your questions.",
+  title: "Xivex — Умный анализ документов",
+  description: "Загрузите документ и получите AI-отчёт, затем задайте вопросы в чате.",
 };
 
 export default function RootLayout({
@@ -16,7 +16,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="ru" suppressHydrationWarning>
       <head>
         <script
           dangerouslySetInnerHTML={{

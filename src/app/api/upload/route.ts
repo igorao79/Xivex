@@ -30,13 +30,10 @@ export async function POST(request: NextRequest) {
 
     const doc = storeDocument(id, parsed);
 
-    // Run report generation and search query extraction in parallel
-    const [report, queries] = await Promise.all([
-      generateReport(parsed.text, file.name),
-      extractSearchQueries(parsed.text, file.name),
-    ]);
+    // Step 1: Extract search queries
+    const queries = await extractSearchQueries(parsed.text, file.name);
 
-    // Search for articles and images using extracted queries
+    // Step 2: Search for articles and images
     let searchData = { articles: [] as any[], images: [] as any[] };
     if (queries.length > 0) {
       try {
@@ -46,13 +43,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Step 3: Generate report with images embedded inline
+    const report = await generateReport(parsed.text, file.name, searchData.images);
+
     return NextResponse.json({
       id: doc.id,
       metadata: doc.parsed.metadata,
       chunksCount: doc.chunks.length,
       report,
       articles: searchData.articles,
-      images: searchData.images,
     });
   } catch (error) {
     console.error("Upload error:", error);

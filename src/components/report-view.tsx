@@ -1,6 +1,6 @@
 "use client";
 
-import { FileText, Download, Clock, Hash, FileType, MessageSquare, ExternalLink, Image as ImageIcon, BookOpen } from "lucide-react";
+import { FileText, Download, Clock, Hash, FileType, MessageSquare, ExternalLink, BookOpen } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { MarkdownRenderer } from "./markdown-renderer";
@@ -20,18 +20,10 @@ interface SearchArticle {
   snippet: string;
 }
 
-interface SearchImage {
-  title: string;
-  url: string;
-  image: string;
-  thumbnail: string;
-}
-
 interface ReportViewProps {
   report: string;
   metadata: DocumentMetadata;
   articles?: SearchArticle[];
-  images?: SearchImage[];
   onAskQuestion?: (question: string) => void;
 }
 
@@ -41,10 +33,11 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+// Match the last ## section that contains a numbered list of questions
+const QUESTIONS_HEADING = /##\s*(?:Potential Questions|Вопросы[^\n]*|Questions[^\n]*)[\s\S]*?(?=\n##|$)/i;
+
 function extractQuestions(report: string): string[] {
-  const questionsMatch = report.match(
-    /##\s*Potential Questions[\s\S]*?(?=\n##|$)/i
-  );
+  const questionsMatch = report.match(QUESTIONS_HEADING);
   if (!questionsMatch) return [];
 
   const lines = questionsMatch[0].split("\n");
@@ -59,12 +52,22 @@ function extractQuestions(report: string): string[] {
 }
 
 function reportWithoutQuestions(report: string): string {
-  return report.replace(/##\s*Potential Questions[\s\S]*?(?=\n##|$)/i, "").trim();
+  return report.replace(QUESTIONS_HEADING, "").trim();
 }
 
-export function ReportView({ report, metadata, articles, images, onAskQuestion }: ReportViewProps) {
+/** Renumber ![Рис. N — ...] sequentially (1, 2, 3...) in order of appearance */
+function renumberImages(text: string): string {
+  let counter = 0;
+  return text.replace(/!\[Рис\.\s*\d+/g, () => {
+    counter++;
+    return `![Рис. ${counter}`;
+  });
+}
+
+export function ReportView({ report, metadata, articles, onAskQuestion }: ReportViewProps) {
   const questions = extractQuestions(report);
-  const cleanReport = questions.length > 0 ? reportWithoutQuestions(report) : report;
+  const stripped = questions.length > 0 ? reportWithoutQuestions(report) : report;
+  const cleanReport = renumberImages(stripped);
 
   return (
     <div className="space-y-6">
@@ -86,17 +89,17 @@ export function ReportView({ report, metadata, articles, images, onAskQuestion }
                 </span>
                 <span className="flex items-center gap-1">
                   <Hash className="size-3" />
-                  {metadata.wordCount.toLocaleString()} words
+                  {metadata.wordCount.toLocaleString()} слов
                 </span>
                 {metadata.pageCount && (
                   <span className="flex items-center gap-1">
                     <FileText className="size-3" />
-                    {metadata.pageCount} pages
+                    {metadata.pageCount} стр.
                   </span>
                 )}
                 <span className="flex items-center gap-1">
                   <Clock className="size-3" />
-                  Just now
+                  Только что
                 </span>
               </div>
             </div>
@@ -109,7 +112,7 @@ export function ReportView({ report, metadata, articles, images, onAskQuestion }
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
             <FileText className="size-5 text-primary" />
-            Analysis Report
+            Аналитический отчёт
           </CardTitle>
         </CardHeader>
         <Separator />
@@ -118,59 +121,16 @@ export function ReportView({ report, metadata, articles, images, onAskQuestion }
         </CardContent>
       </Card>
 
-      {/* Images from web search */}
-      {images && images.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <ImageIcon className="size-5 text-primary" />
-              Related Images
-            </CardTitle>
-          </CardHeader>
-          <Separator />
-          <CardContent className="pt-4">
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              {images.map((img, i) => (
-                <a
-                  key={i}
-                  href={img.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group relative overflow-hidden rounded-lg border bg-muted transition-all hover:border-primary/40 hover:shadow-md"
-                >
-                  <div className="aspect-[4/3] overflow-hidden">
-                    <img
-                      src={img.thumbnail || img.image}
-                      alt={img.title}
-                      loading="lazy"
-                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).closest("a")!.style.display = "none";
-                      }}
-                    />
-                  </div>
-                  <div className="p-2">
-                    <p className="line-clamp-2 text-xs text-muted-foreground">
-                      {img.title}
-                    </p>
-                  </div>
-                </a>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {/* Related articles from web search */}
       {articles && articles.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <BookOpen className="size-5 text-primary" />
-              Related Articles
+              Связанные статьи
             </CardTitle>
             <p className="text-sm text-muted-foreground">
-              Found across the web — real sources related to your document
+              Найдено в интернете — реальные источники по теме документа
             </p>
           </CardHeader>
           <Separator />
@@ -213,10 +173,10 @@ export function ReportView({ report, metadata, articles, images, onAskQuestion }
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <MessageSquare className="size-5 text-primary" />
-              Dive Deeper
+              Узнать больше
             </CardTitle>
             <p className="text-sm text-muted-foreground">
-              Click a question to ask it in the chat
+              Нажмите на вопрос, чтобы задать его в чате
             </p>
           </CardHeader>
           <Separator />

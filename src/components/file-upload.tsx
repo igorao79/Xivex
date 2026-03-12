@@ -86,7 +86,7 @@ export function FileUpload({ onFileUpload, isUploading, progress }: FileUploadPr
             </span>
           </div>
           <p className="text-sm text-muted-foreground animate-pulse">
-            Analyzing document...
+            Анализируем документ...
           </p>
         </div>
       ) : (
@@ -95,10 +95,10 @@ export function FileUpload({ onFileUpload, isUploading, progress }: FileUploadPr
             <Upload className="size-8 text-primary" />
           </div>
           <p className="mb-1 text-lg font-semibold">
-            {isDragActive ? "Drop your file here" : "Upload a document"}
+            {isDragActive ? "Отпустите файл здесь" : "Загрузите документ"}
           </p>
           <p className="text-sm text-muted-foreground text-center max-w-xs">
-            Drag & drop or click to select. Supports PDF, DOCX, XLSX, CSV, TXT, MD, JSON, HTML, XML
+            Перетащите или нажмите для выбора. Поддерживает PDF, DOCX, XLSX, CSV, TXT, MD, JSON, HTML, XML
           </p>
           <div className="mt-4 flex gap-2 flex-wrap justify-center">
             {[".pdf", ".docx", ".xlsx", ".csv", ".txt"].map((ext) => (

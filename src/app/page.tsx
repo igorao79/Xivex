@@ -23,15 +23,14 @@ interface DocumentState {
   };
   report: string;
   articles: { title: string; url: string; snippet: string }[];
-  images: { title: string; url: string; image: string; thumbnail: string }[];
 }
 
 const SUGGESTED_QUESTIONS = [
-  "What are the main topics covered in this document?",
-  "Summarize the key findings and conclusions",
-  "What are the most important data points?",
-  "Are there any recommendations or action items?",
-  "What questions remain unanswered?",
+  "Какие основные темы рассматриваются в документе?",
+  "Кратко изложи ключевые выводы",
+  "Какие важные данные и цифры есть в документе?",
+  "Есть ли рекомендации или план действий?",
+  "Какие вопросы остались без ответа?",
 ];
 
 const FILE_TYPES = [".PDF", ".DOCX", ".XLSX", ".CSV", ".TXT", ".MD", ".JSON", ".HTML"];
@@ -80,15 +79,14 @@ export default function Home() {
         metadata: data.metadata,
         report: data.report,
         articles: data.articles || [],
-        images: data.images || [],
       });
 
       setActiveTab("report");
-      toast.success("Document analyzed successfully!");
+      toast.success("Документ успешно проанализирован!");
     } catch (error) {
       console.error("Upload error:", error);
       toast.error(
-        error instanceof Error ? error.message : "Failed to upload document"
+        error instanceof Error ? error.message : "Не удалось загрузить документ"
       );
     } finally {
       clearInterval(progressInterval);
@@ -127,7 +125,7 @@ export default function Home() {
                 onClick={handleNewDocument}
                 className="text-sm text-muted-foreground hover:text-foreground cursor-pointer active:scale-[0.97] transition-all duration-150"
               >
-                + New Document
+                + Новый документ
               </button>
             )}
             <ThemeToggle />
@@ -147,13 +145,13 @@ export default function Home() {
               className="mb-8 text-center"
             >
               <h1 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl">
-                Analyze any{" "}
+                Анализ любого{" "}
                 <RotatingText
                   texts={FILE_TYPES}
                   rotationInterval={2600}
                   className="min-w-[4ch] justify-center"
                 />{" "}
-                with AI
+                с помощью ИИ
               </h1>
               <motion.p
                 initial={{ y: 20, opacity: 0 }}
@@ -161,8 +159,8 @@ export default function Home() {
                 transition={{ duration: 0.6, delay: 0.3, ease: "easeOut" }}
                 className="mt-3 text-lg text-muted-foreground max-w-2xl mx-auto"
               >
-                Upload a PDF, Word doc, spreadsheet, or text file. Get an instant
-                AI-powered report, then ask follow-up questions in chat.
+                Загрузите PDF, Word, таблицу или текстовый файл. Получите мгновенный
+                AI-отчёт и задайте дополнительные вопросы в чате.
               </motion.p>
             </motion.div>
 
@@ -191,12 +189,12 @@ export default function Home() {
               tabs={[
                 {
                   value: "report",
-                  label: "Report",
+                  label: "Отчёт",
                   icon: <FileSearch className="size-4" />,
                 },
                 {
                   value: "chat",
-                  label: "Chat",
+                  label: "Чат",
                   icon: <MessageSquare className="size-4" />,
                   badge:
                     messages.length > 0 ? (
@@ -222,7 +220,7 @@ export default function Home() {
                   report={document.report}
                   metadata={document.metadata}
                   articles={document.articles}
-                  images={document.images}
+
                   onAskQuestion={(q) => {
                     sendMessage(q);
                     setActiveTab("chat");

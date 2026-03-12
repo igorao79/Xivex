@@ -16,6 +16,30 @@ export interface ImageResult {
 }
 
 /**
+ * Check if a page title is relevant to the query.
+ * At least half of the significant query words must appear in the title.
+ */
+function isTitleRelevant(title: string, query: string): boolean {
+  const stopWords = new Set([
+    "the", "a", "an", "of", "in", "on", "at", "to", "for", "and", "or",
+    "is", "was", "by", "with", "from", "as", "that", "this", "it",
+  ]);
+  const titleLower = title.toLowerCase();
+  const queryWords = query
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((w) => w.length > 2 && !stopWords.has(w));
+  if (queryWords.length === 0) return true;
+
+  let matched = 0;
+  for (const word of queryWords) {
+    if (titleLower.includes(word)) matched++;
+  }
+  // At least half of significant query words must be in the title
+  return matched >= Math.ceil(queryWords.length / 2);
+}
+
+/**
  * Search Google via Jina Reader — parses real search result titles, URLs, and snippets
  */
 async function searchGoogle(
@@ -117,81 +141,93 @@ async function searchGoogle(
 }
 
 /**
- * Search Wikimedia Commons for images
+ * Search Wikimedia Commons for images — with relevance filtering
  */
 async function searchCommonsImages(
-  query: string,
-  limit = 8
+  queries: string[],
+  limit = 4
 ): Promise<ImageResult[]> {
-  try {
-    const params = new URLSearchParams({
-      action: "query",
-      generator: "search",
-      gsrsearch: query,
-      gsrnamespace: "6",
-      gsrlimit: String(limit),
-      prop: "imageinfo",
-      iiprop: "url|extmetadata",
-      iiurlwidth: "500",
-      format: "json",
-    });
+  const allResults: ImageResult[] = [];
+  const seen = new Set<string>();
 
-    const res = await fetch(
-      `https://commons.wikimedia.org/w/api.php?${params}`,
-      { signal: AbortSignal.timeout(8000) }
-    );
-    if (!res.ok) return [];
-
-    const data = await res.json();
-    const pages = Object.values(data.query?.pages || {}) as any[];
-    const results: ImageResult[] = [];
-
-    for (const page of pages) {
-      const info = page.imageinfo?.[0];
-      if (!info?.thumburl) continue;
-
-      const title = (page.title || "").toLowerCase();
-      if (title.endsWith(".svg") || title.includes("icon") || title.includes("logo") || title.includes("flag"))
-        continue;
-      // Skip very generic images (single word titles after removing File: prefix)
-      const cleanTitle = title.replace("file:", "").replace(/\.[^.]+$/, "").trim();
-      if (cleanTitle.split(/\s+/).length <= 1) continue;
-
-      const desc =
-        info.extmetadata?.ImageDescription?.value
-          ?.replace(/<[^>]+>/g, "")
-          ?.substring(0, 120) || page.title.replace("File:", "").replace(/\.[^.]+$/, "");
-
-      results.push({
-        title: desc,
-        url:
-          info.descriptionurl ||
-          `https://commons.wikimedia.org/wiki/${encodeURIComponent(page.title)}`,
-        image: info.thumburl,
-        thumbnail: info.thumburl,
+  for (const query of queries.slice(0, 3)) {
+    try {
+      const params = new URLSearchParams({
+        action: "query",
+        generator: "search",
+        gsrsearch: query,
+        gsrnamespace: "6",
+        gsrlimit: String(limit + 4), // fetch extra to filter
+        prop: "imageinfo",
+        iiprop: "url|extmetadata",
+        iiurlwidth: "500",
+        format: "json",
       });
-    }
 
-    return results;
-  } catch {
-    return [];
+      const res = await fetch(
+        `https://commons.wikimedia.org/w/api.php?${params}`,
+        { signal: AbortSignal.timeout(8000) }
+      );
+      if (!res.ok) continue;
+
+      const data = await res.json();
+      const pages = Object.values(data.query?.pages || {}) as any[];
+
+      for (const page of pages) {
+        const info = page.imageinfo?.[0];
+        if (!info?.thumburl) continue;
+
+        const fileTitle = (page.title || "").toLowerCase();
+        if (fileTitle.endsWith(".svg") || fileTitle.includes("icon") || fileTitle.includes("logo") || fileTitle.includes("flag"))
+          continue;
+        const cleanTitle = fileTitle.replace("file:", "").replace(/\.[^.]+$/, "").trim();
+        if (cleanTitle.split(/\s+/).length <= 1) continue;
+        if (seen.has(info.thumburl)) continue;
+
+        // Relevance check — file title or description must relate to query
+        const desc =
+          info.extmetadata?.ImageDescription?.value
+            ?.replace(/<[^>]+>/g, "")
+            ?.substring(0, 200) || "";
+        const combinedText = cleanTitle + " " + desc.toLowerCase();
+        if (!isTitleRelevant(combinedText, query)) continue;
+
+        seen.add(info.thumburl);
+
+        const displayTitle = desc.substring(0, 120) || page.title.replace("File:", "").replace(/\.[^.]+$/, "");
+
+        allResults.push({
+          title: displayTitle,
+          url:
+            info.descriptionurl ||
+            `https://commons.wikimedia.org/wiki/${encodeURIComponent(page.title)}`,
+          image: info.thumburl,
+          thumbnail: info.thumburl,
+        });
+      }
+    } catch {
+      continue;
+    }
   }
+
+  return allResults;
 }
 
 /**
- * Search Wikipedia for pages and get their thumbnails
+ * Search Wikipedia for pages and get their thumbnails — with relevance filtering
  */
 async function getWikiPageImages(queries: string[]): Promise<ImageResult[]> {
   const results: ImageResult[] = [];
+  const seen = new Set<string>();
 
-  for (const query of queries.slice(0, 3)) {
+  for (const query of queries.slice(0, 4)) {
     try {
       const searchParams = new URLSearchParams({
         action: "query",
         generator: "search",
         gsrsearch: query,
-        gsrlimit: "3",
-        prop: "pageimages",
+        gsrlimit: "4",
+        prop: "pageimages|description",
         pithumbsize: "500",
         format: "json",
       });
@@ -205,14 +241,18 @@ async function getWikiPageImages(queries: string[]): Promise<ImageResult[]> {
       const pages = Object.values(data.query?.pages || {}) as any[];
 
       for (const p of pages) {
-        if (p.thumbnail?.source) {
-          results.push({
-            title: p.title,
-            url: `https://en.wikipedia.org/wiki/${encodeURIComponent(p.title.replace(/ /g, "_"))}`,
-            image: p.thumbnail.source,
-            thumbnail: p.thumbnail.source,
-          });
-        }
+        if (!p.thumbnail?.source || seen.has(p.title)) continue;
+
+        // Relevance check — page title must relate to query
+        if (!isTitleRelevant(p.title, query)) continue;
+
+        seen.add(p.title);
+        results.push({
+          title: p.title,
+          url: `https://en.wikipedia.org/wiki/${encodeURIComponent(p.title.replace(/ /g, "_"))}`,
+          image: p.thumbnail.source,
+          thumbnail: p.thumbnail.source,
+        });
       }
     } catch {
       continue;
@@ -231,10 +271,10 @@ export async function searchForTopics(
   const [googleResults, commonsImages, pageImages] = await Promise.all([
     // Google search for diverse articles
     Promise.all(queries.slice(0, 3).map((q) => searchGoogle(q, 5))),
-    // Wikimedia Commons — focused search on main topic
-    searchCommonsImages(queries[0]?.split(/\s+/).slice(0, 3).join(" ") || "", 10),
-    // Wikipedia page images via search
-    getWikiPageImages(queries.slice(0, 4)),
+    // Wikimedia Commons
+    searchCommonsImages(queries, 4),
+    // Wikipedia page images
+    getWikiPageImages(queries),
   ] as const);
 
   // Deduplicate articles
@@ -258,6 +298,6 @@ export async function searchForTopics(
 
   return {
     articles: Array.from(uniqueArticles.values()).slice(0, 10),
-    images: Array.from(uniqueImages.values()).slice(0, 8),
+    images: Array.from(uniqueImages.values()).slice(0, 10),
   };
 }

@@ -31,29 +31,41 @@ export async function streamChat(
   return fullResponse;
 }
 
-export async function generateReport(documentText: string, fileName: string) {
-  const systemPrompt = `You are an expert document analyst. You will be given the full text of a document.
-Your task is to produce a comprehensive, well-structured analysis report in Markdown format.
+interface ImageForReport {
+  title: string;
+  url: string;
+  image: string;
+  thumbnail: string;
+}
 
-The report MUST include these sections:
+export async function generateReport(
+  documentText: string,
+  fileName: string,
+  images: ImageForReport[] = []
+) {
+  const imageBlock =
+    images.length > 0
+      ? `
 
-## Executive Summary
-A brief overview of the document.
+IMAGES — you have these images. Embed them INSIDE the text paragraphs where relevant:
+${images.map((img, i) => `  img${i + 1}: "${img.title}" → ![Рис. ${i + 1} — ${img.title}](${img.image})`).join("\n")}
 
-## Key Findings
-Main points, data, and insights as bullet points.
+When you write about a topic and one of the images matches — paste its ![Рис. N — ...](url) line right there, between paragraphs.
+NEVER group images together. NEVER create an "Images" / "Illustrations" / "Gallery" section.
+If an image doesn't fit any paragraph — skip it. Use 2-5 images max.`
+      : "";
 
-## Detailed Analysis
-Section-by-section breakdown with supporting quotes from the document.
+  const systemPrompt = `You are an expert document analyst. Produce a thorough, well-structured analysis report in Markdown.
 
-## Statistics & Data
-Any numbers, percentages, or data points. Use Markdown tables where appropriate.
+Write the report in the SAME LANGUAGE as the document. Structure it naturally — use headings (##) that fit the document's content. Do NOT follow a rigid template. Organise the report the way a skilled analyst would: start with a brief overview, then cover key topics, insights, data, and context in whatever order makes sense.
 
-## Potential Questions
-List 5 thought-provoking questions a reader might have after reading. Format as a numbered list.
-
-Use proper Markdown formatting with headings, bullet points, bold text, and tables where appropriate.
-Be thorough but concise. Always reference specific parts of the document.`;
+Guidelines:
+- Use ## headings, bullet points, **bold**, tables where appropriate
+- Quote specific parts of the document to support your points
+- Include any numbers, statistics, or data in tables
+- Be thorough but concise — no filler
+- At the very END, add a section "## Potential Questions" with 5 numbered thought-provoking questions
+- Do NOT use generic section names like "Executive Summary" or "Key Findings" — write descriptive headings that reflect the actual content${imageBlock}`;
 
   const response = await groq.chat.completions.create({
     model: MODEL,
@@ -84,14 +96,20 @@ export async function extractSearchQueries(
     messages: [
       {
         role: "system",
-        content: `You extract search queries from documents. Given a document, return 4-6 diverse search queries that would find relevant articles, images, and resources about the document's topics.
+        content: `You extract Wikipedia/image search queries from documents. Given a document, return 4-6 very SPECIFIC search queries.
 
-Rules:
+CRITICAL RULES:
 - ALWAYS write queries in ENGLISH, even if the document is in another language
-- Each query should target a DIFFERENT aspect of the document
-- Make queries specific enough to get good results but SHORT (3-8 words each)
-- Include the main subject/topic in most queries
-- Include queries for both broad context and specific details
+- Queries must be EXTREMELY SPECIFIC — use FULL proper names, not abbreviations
+  BAD: "Nicholas II" (matches many people named Nicholas)
+  GOOD: "Nicholas II of Russia", "Tsar Nicholas II Romanov"
+  BAD: "World War I"
+  GOOD: "World War I Eastern Front Russia"
+- Each query should target a DIFFERENT key topic from the document
+- Keep queries 3-8 words, but always include disambiguating context
+- For people: always add their role/country/era (e.g. "Alexander II Emperor Russia")
+- For events: always add location/year/context (e.g. "Russian Revolution 1917 Petrograd")
+- For places: always add country/region (e.g. "Winter Palace St Petersburg")
 - Return ONLY the queries, one per line, no numbering, no extra text`,
       },
       {
