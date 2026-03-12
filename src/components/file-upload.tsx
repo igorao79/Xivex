@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 import { useDropzone } from "react-dropzone";
-import { Upload, FileText, FileSpreadsheet, File } from "lucide-react";
+import { Upload, FileText, FileSpreadsheet, File, Presentation } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
 
@@ -15,6 +15,7 @@ interface FileUploadProps {
 const ACCEPTED_TYPES: Record<string, string[]> = {
   "application/pdf": [".pdf"],
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation": [".pptx"],
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"],
   "application/vnd.ms-excel": [".xls"],
   "text/csv": [".csv"],
@@ -28,6 +29,7 @@ const ACCEPTED_TYPES: Record<string, string[]> = {
 function getFileIcon(fileName: string) {
   const ext = fileName.split(".").pop()?.toLowerCase();
   if (ext === "pdf") return <FileText className="size-8 text-red-500" />;
+  if (ext === "pptx") return <Presentation className="size-8 text-orange-500" />;
   if (["xlsx", "xls", "csv"].includes(ext || "")) return <FileSpreadsheet className="size-8 text-green-500" />;
   if (["docx", "doc"].includes(ext || "")) return <FileText className="size-8 text-blue-500" />;
   return <File className="size-8 text-muted-foreground" />;
@@ -104,7 +106,7 @@ export function FileUpload({ onFileUpload, isUploading, progress }: FileUploadPr
             {t.uploadHint}
           </p>
           <div className="mt-4 flex gap-2 flex-wrap justify-center">
-            {[".pdf", ".docx", ".xlsx", ".csv", ".txt"].map((ext) => (
+            {[".pdf", ".docx", ".pptx", ".xlsx", ".csv", ".txt"].map((ext) => (
               <span
                 key={ext}
                 className="rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground"

@@ -2,6 +2,7 @@
 const pdfParse = require("pdf-parse");
 import mammoth from "mammoth";
 import * as XLSX from "xlsx";
+import JSZip from "jszip";
 
 export interface ParsedDocument {
   text: string;
@@ -12,6 +13,48 @@ export interface ParsedDocument {
     pageCount?: number;
     wordCount: number;
   };
+}
+
+/**
+ * Extract text from a PPTX file (PowerPoint).
+ * PPTX is a ZIP archive containing XML slides.
+ */
+async function parsePptx(buffer: Buffer): Promise<{ text: string; slideCount: number }> {
+  const zip = await JSZip.loadAsync(buffer);
+  const slides: { index: number; text: string }[] = [];
+
+  for (const [path, file] of Object.entries(zip.files)) {
+    // Match slide XML files: ppt/slides/slide1.xml, slide2.xml, etc.
+    const slideMatch = path.match(/^ppt\/slides\/slide(\d+)\.xml$/);
+    if (!slideMatch) continue;
+
+    const xml = await file.async("text");
+    // Extract all text runs from the XML
+    const textParts: string[] = [];
+    // Match <a:t>...</a:t> tags which contain the actual text
+    const regex = /<a:t[^>]*>([\s\S]*?)<\/a:t>/g;
+    let match;
+    while ((match = regex.exec(xml)) !== null) {
+      const t = match[1].trim();
+      if (t) textParts.push(t);
+    }
+
+    if (textParts.length > 0) {
+      slides.push({
+        index: parseInt(slideMatch[1]),
+        text: textParts.join(" "),
+      });
+    }
+  }
+
+  // Sort by slide number
+  slides.sort((a, b) => a.index - b.index);
+
+  const text = slides
+    .map((s) => `--- Slide ${s.index} ---\n${s.text}`)
+    .join("\n\n");
+
+  return { text, slideCount: slides.length };
 }
 
 export async function parseDocument(
@@ -34,6 +77,14 @@ export async function parseDocument(
   ) {
     const result = await mammoth.extractRawText({ buffer });
     text = result.value;
+  } else if (
+    mimeType ===
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation" ||
+    ext === "pptx"
+  ) {
+    const result = await parsePptx(buffer);
+    text = result.text;
+    pageCount = result.slideCount;
   } else if (
     mimeType ===
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||

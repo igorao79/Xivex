@@ -28,7 +28,7 @@ interface DocumentState {
   articles: { title: string; url: string; snippet: string }[];
 }
 
-const FILE_TYPES = [".PDF", ".DOCX", ".XLSX", ".CSV", ".TXT", ".MD", ".JSON", ".HTML"];
+const FILE_TYPES = [".PDF", ".DOCX", ".PPTX", ".XLSX", ".CSV", ".TXT", ".MD", ".JSON", ".HTML"];
 
 export default function Home() {
   const { t } = useI18n();
