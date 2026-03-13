@@ -251,79 +251,59 @@ export default function Home() {
         transition={{ duration: 0.5, ease: "easeOut" }}
         className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-lg"
       >
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
+        <div className="mx-auto flex h-14 sm:h-16 max-w-7xl items-center justify-between px-3 sm:px-6">
           {/* Left: logo + mode switcher */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             <button
               onClick={handleLogoClick}
-              className="flex items-center gap-2 cursor-pointer hover:opacity-80 active:scale-[0.97] transition-all duration-150"
+              className="flex items-center gap-1.5 sm:gap-2 cursor-pointer hover:opacity-80 active:scale-[0.97] transition-all duration-150"
             >
               <Image
                 src="/logotip.webp"
                 alt="Xivex"
                 width={32}
                 height={32}
-                className="size-8 dark:invert-0 invert"
+                className="size-7 sm:size-8 dark:invert-0 invert"
                 priority
               />
-              <span className="text-xl font-bold tracking-tight">
+              <span className="hidden xs:inline text-xl font-bold tracking-tight">
                 Xi<span className="text-primary">vex</span>
               </span>
             </button>
 
-            {/* Mode switcher */}
-            <div className="hidden sm:flex items-center rounded-lg border bg-muted/50 p-0.5">
+            {/* Mode switcher — icons on mobile, labels on desktop */}
+            <div className="flex items-center rounded-lg border bg-muted/50 p-0.5">
               <button
                 onClick={() => setAppMode("analysis")}
-                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all duration-200 cursor-pointer ${
+                className={`flex items-center gap-1.5 rounded-md px-2 py-1 sm:px-3 sm:py-1.5 text-sm font-medium transition-all duration-200 cursor-pointer ${
                   appMode === "analysis"
                     ? "bg-primary text-primary-foreground shadow-sm shadow-primary/25"
                     : "text-muted-foreground hover:text-foreground hover:bg-muted"
                 }`}
               >
                 <FileSearch className="size-3.5" />
-                {t.modeAnalysis}
+                <span className="hidden sm:inline">{t.modeAnalysis}</span>
               </button>
               <button
                 onClick={() => setAppMode("chat")}
-                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all duration-200 cursor-pointer ${
+                className={`flex items-center gap-1.5 rounded-md px-2 py-1 sm:px-3 sm:py-1.5 text-sm font-medium transition-all duration-200 cursor-pointer ${
                   appMode === "chat"
                     ? "bg-primary text-primary-foreground shadow-sm shadow-primary/25"
                     : "text-muted-foreground hover:text-foreground hover:bg-muted"
                 }`}
               >
                 <Bot className="size-3.5" />
-                {t.modeChat}
+                <span className="hidden sm:inline">{t.modeChat}</span>
               </button>
             </div>
           </div>
 
           {/* Right: controls */}
-          <div className="flex items-center gap-2">
-            {/* Mobile mode switcher */}
-            <div className="flex sm:hidden items-center rounded-lg border bg-muted/50 p-0.5">
-              <button
-                onClick={() => setAppMode("analysis")}
-                className={`rounded-md p-1.5 transition-all cursor-pointer ${
-                  appMode === "analysis" ? "bg-primary text-primary-foreground shadow-sm shadow-primary/25" : "text-muted-foreground"
-                }`}
-              >
-                <FileSearch className="size-4" />
-              </button>
-              <button
-                onClick={() => setAppMode("chat")}
-                className={`rounded-md p-1.5 transition-all cursor-pointer ${
-                  appMode === "chat" ? "bg-primary text-primary-foreground shadow-sm shadow-primary/25" : "text-muted-foreground"
-                }`}
-              >
-                <Bot className="size-4" />
-              </button>
-            </div>
-
+          <div className="flex items-center gap-1 sm:gap-2">
             {appMode === "analysis" && document && (
               <button
                 onClick={handleNewDocument}
-                className="text-sm text-muted-foreground hover:text-foreground cursor-pointer active:scale-[0.97] transition-all duration-150"
+                className="hidden sm:block text-sm text-muted-foreground hover:text-foreground cursor-pointer active:scale-[0.97] transition-all duration-150"
               >
                 {t.newDocument}
               </button>

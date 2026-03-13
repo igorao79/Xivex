@@ -2,7 +2,7 @@
 
 import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
-import { LogOut, User } from "lucide-react";
+import { LogIn, LogOut, User } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 
 export function UserMenu() {
@@ -19,9 +19,10 @@ export function UserMenu() {
     return (
       <Link
         href="/auth/signin"
-        className="rounded-lg border bg-primary text-primary-foreground px-3 py-1.5 text-sm font-medium hover:bg-primary/90 transition-colors"
+        className="flex items-center justify-center gap-1.5 rounded-lg border bg-primary text-primary-foreground size-8 sm:size-auto sm:px-3 sm:py-1.5 text-sm font-medium hover:bg-primary/90 transition-colors"
       >
-        {t.authSignIn}
+        <LogIn className="size-4 sm:hidden" />
+        <span className="hidden sm:inline">{t.authSignIn}</span>
       </Link>
     );
   }
