@@ -70,11 +70,21 @@ export default function Home() {
       onUserMessage: async (msg: { id: string; role: string; content: string }) => {
         if (!activeId) return;
         saveMessage(activeId, msg);
-        // Auto-title: use first user message as title
+        // Auto-title: generate AI title from first user message
         const conv = conversations.find((c) => c.id === activeId);
         if (conv && (conv.title === "New chat" || conv.title === "Новый чат")) {
-          const title = msg.content.slice(0, 50) + (msg.content.length > 50 ? "…" : "");
-          updateTitle(activeId, title);
+          // Set temporary title immediately, then replace with AI title
+          updateTitle(activeId, msg.content.slice(0, 30) + "…");
+          fetch("/api/conversations/title", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message: msg.content }),
+          })
+            .then((res) => res.json())
+            .then((data) => {
+              if (data.title) updateTitle(activeId, data.title);
+            })
+            .catch(() => {});
         }
       },
       onAssistantDone: async (msg: {
@@ -159,6 +169,13 @@ export default function Home() {
       setSidebarOpen(false);
     },
     [setActiveId]
+  );
+
+  const handleRenameConversation = useCallback(
+    async (id: string, title: string) => {
+      await updateTitle(id, title);
+    },
+    [updateTitle]
   );
 
   const handleDeleteConversation = useCallback(
@@ -323,6 +340,7 @@ export default function Home() {
           onSelect={handleSelectConversation}
           onNew={handleNewChat}
           onDelete={handleDeleteConversation}
+          onRename={handleRenameConversation}
           isOpen={sidebarOpen}
           onToggle={() => setSidebarOpen(!sidebarOpen)}
         />
