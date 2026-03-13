@@ -235,17 +235,17 @@ export function ChatInterface({
                 {message.role === "user" ? (
                   /* ─── User message ─── */
                   <div className="flex gap-3 justify-end">
-                    <div className="max-w-[85%] rounded-2xl rounded-br-md bg-primary text-white px-4 py-3 shadow-sm shadow-primary/20">
+                    <div className="max-w-[80%] rounded-2xl rounded-br-sm bg-primary text-primary-foreground px-4 py-3">
                       <p className="text-sm whitespace-pre-wrap">{message.content}</p>
                     </div>
-                    <div className="mt-1 shrink-0 w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center ring-1 ring-primary/20">
+                    <div className="mt-1 shrink-0 w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center">
                       <User className="size-4 text-primary" />
                     </div>
                   </div>
                 ) : (
                   /* ─── Assistant message ─── */
                   <div className="flex gap-3 justify-start">
-                    <div className="mt-1 shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center ring-1 ring-primary/15">
+                    <div className="mt-1 shrink-0 w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center">
                       <Bot className="size-4 text-primary" />
                     </div>
                     <div className="max-w-[85%] flex flex-col">
