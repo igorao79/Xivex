@@ -166,7 +166,7 @@ export default function Home() {
                 onClick={() => setAppMode("analysis")}
                 className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all duration-200 cursor-pointer ${
                   appMode === "analysis"
-                    ? "bg-primary text-primary-foreground shadow-sm"
+                    ? "bg-primary text-white shadow-sm shadow-primary/25"
                     : "text-muted-foreground hover:text-foreground hover:bg-muted"
                 }`}
               >
@@ -177,7 +177,7 @@ export default function Home() {
                 onClick={() => setAppMode("chat")}
                 className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all duration-200 cursor-pointer ${
                   appMode === "chat"
-                    ? "bg-primary text-primary-foreground shadow-sm"
+                    ? "bg-primary text-white shadow-sm shadow-primary/25"
                     : "text-muted-foreground hover:text-foreground hover:bg-muted"
                 }`}
               >
@@ -194,7 +194,7 @@ export default function Home() {
               <button
                 onClick={() => setAppMode("analysis")}
                 className={`rounded-md p-1.5 transition-all cursor-pointer ${
-                  appMode === "analysis" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground"
+                  appMode === "analysis" ? "bg-primary text-white shadow-sm shadow-primary/25" : "text-muted-foreground"
                 }`}
               >
                 <FileSearch className="size-4" />
@@ -202,7 +202,7 @@ export default function Home() {
               <button
                 onClick={() => setAppMode("chat")}
                 className={`rounded-md p-1.5 transition-all cursor-pointer ${
-                  appMode === "chat" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground"
+                  appMode === "chat" ? "bg-primary text-white shadow-sm shadow-primary/25" : "text-muted-foreground"
                 }`}
               >
                 <Bot className="size-4" />

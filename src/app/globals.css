@@ -53,6 +53,22 @@ body {
   color: var(--foreground);
 }
 
+/* Smooth theme transition */
+html,
+html *,
+html *::before,
+html *::after {
+  transition: background-color 0.35s ease, color 0.2s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Disable transition on images/svgs to avoid flash */
+html img,
+html svg,
+html video,
+html canvas {
+  transition: none !important;
+}
+
 /* Global interactive styles — cursor + active press + focus ring */
 button,
 [role="button"],
