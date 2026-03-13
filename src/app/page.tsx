@@ -64,7 +64,10 @@ export default function Home() {
       });
 
       if (!response.ok) {
-        const err = await response.json();
+        if (response.status === 413) {
+          throw new Error("File too large. Maximum size is 50 MB.");
+        }
+        const err = await response.json().catch(() => ({ error: "Upload failed" }));
         throw new Error(err.error || "Upload failed");
       }
 
