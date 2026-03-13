@@ -42,7 +42,7 @@ function isTitleRelevant(title: string, query: string): boolean {
 /**
  * Search Google via Jina Reader — parses real search result titles, URLs, and snippets
  */
-async function searchGoogle(
+export async function searchGoogle(
   query: string,
   limit = 8
 ): Promise<SearchResult[]> {

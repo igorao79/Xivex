@@ -45,6 +45,20 @@ const translations = {
     sq3: "Какие важные данные и цифры есть в документе?",
     sq4: "Есть ли рекомендации или план действий?",
     sq5: "Какие вопросы остались без ответа?",
+    // Modes
+    modeAnalysis: "Анализ",
+    modeChat: "Чат",
+    // Agent chat
+    agentTitle: "AI Ассистент",
+    agentEmpty: "Спросите что угодно — я найду ответ в интернете",
+    agentEmptyHint: "Я ищу информацию в сети, читаю страницы и собираю ответ с источниками",
+    agentPlaceholder: "Спросите что угодно...",
+    agentSearching: "Ищу",
+    agentReading: "Читаю",
+    agentSq1: "Какие последние новости в мире технологий?",
+    agentSq2: "Сравни React и Vue в 2026 году",
+    agentSq3: "Объясни квантовые вычисления простыми словами",
+    agentSq4: "Какие тренды в AI сейчас?",
   },
   en: {
     // Landing
@@ -86,6 +100,20 @@ const translations = {
     sq3: "What are the most important data points?",
     sq4: "Are there any recommendations or action items?",
     sq5: "What questions remain unanswered?",
+    // Modes
+    modeAnalysis: "Analysis",
+    modeChat: "Chat",
+    // Agent chat
+    agentTitle: "AI Assistant",
+    agentEmpty: "Ask me anything — I'll search the web for answers",
+    agentEmptyHint: "I search the internet, read pages, and compile answers with sources",
+    agentPlaceholder: "Ask anything...",
+    agentSearching: "Searching",
+    agentReading: "Reading",
+    agentSq1: "What are the latest tech news?",
+    agentSq2: "Compare React vs Vue in 2026",
+    agentSq3: "Explain quantum computing in simple terms",
+    agentSq4: "What are the current AI trends?",
   },
 };
 

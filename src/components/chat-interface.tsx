@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Send, Loader2, User, Bot, Trash2 } from "lucide-react";
+import { Send, Loader2, User, Bot, Trash2, Globe, FileText as FileTextIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { MarkdownRenderer } from "./markdown-renderer";
@@ -9,12 +9,22 @@ import type { Message } from "@/hooks/use-chat";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
 
+export interface ToolStatusDisplay {
+  type: "searching" | "reading";
+  detail: string;
+}
+
 interface ChatInterfaceProps {
   messages: Message[];
   isLoading: boolean;
   onSendMessage: (content: string) => void;
   onClear: () => void;
   suggestedQuestions?: string[];
+  toolStatus?: ToolStatusDisplay | null;
+  title?: string;
+  emptyText?: string;
+  emptyHint?: string;
+  placeholder?: string;
 }
 
 export function ChatInterface({
@@ -23,6 +33,11 @@ export function ChatInterface({
   onSendMessage,
   onClear,
   suggestedQuestions = [],
+  toolStatus,
+  title,
+  emptyText,
+  emptyHint,
+  placeholder,
 }: ChatInterfaceProps) {
   const { t } = useI18n();
   const [input, setInput] = useState("");
@@ -56,7 +71,7 @@ export function ChatInterface({
       <div className="flex items-center justify-between border-b px-4 py-3">
         <div className="flex items-center gap-2">
           <Bot className="size-5 text-primary" />
-          <h2 className="font-semibold">{t.chatTitle}</h2>
+          <h2 className="font-semibold">{title || t.chatTitle}</h2>
         </div>
         {messages.length > 0 && (
           <Button variant="ghost" size="sm" onClick={onClear}>
@@ -74,9 +89,9 @@ export function ChatInterface({
               <Bot className="size-8 text-primary" />
             </div>
             <div className="text-center">
-              <p className="font-medium">{t.chatEmpty}</p>
+              <p className="font-medium">{emptyText || t.chatEmpty}</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                {t.chatEmptyHint}
+                {emptyHint || t.chatEmptyHint}
               </p>
             </div>
             {suggestedQuestions.length > 0 && (
@@ -120,6 +135,18 @@ export function ChatInterface({
                     <p className="text-sm">{message.content}</p>
                   ) : message.content ? (
                     <MarkdownRenderer content={message.content} />
+                  ) : toolStatus ? (
+                    <div className="flex items-center gap-2">
+                      {toolStatus.type === "searching" ? (
+                        <Globe className="size-4 animate-pulse text-primary" />
+                      ) : (
+                        <FileTextIcon className="size-4 animate-pulse text-primary" />
+                      )}
+                      <span className="text-sm text-muted-foreground">
+                        {toolStatus.type === "searching" ? t.agentSearching : t.agentReading}:{" "}
+                        <span className="italic">{toolStatus.detail.length > 60 ? toolStatus.detail.slice(0, 60) + "…" : toolStatus.detail}</span>
+                      </span>
+                    </div>
                   ) : (
                     <div className="flex items-center gap-2">
                       <Loader2 className="size-4 animate-spin" />
@@ -147,7 +174,7 @@ export function ChatInterface({
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={t.chatPlaceholder}
+              placeholder={placeholder || t.chatPlaceholder}
               className="w-full resize-none rounded-xl border bg-background px-4 py-3 pr-12 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 min-h-[48px] max-h-[120px]"
               rows={1}
               disabled={isLoading}

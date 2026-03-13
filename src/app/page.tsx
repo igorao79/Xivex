@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react";
 import { toast } from "sonner";
 import { motion } from "motion/react";
-import { FileSearch, MessageSquare } from "lucide-react";
+import { FileSearch, MessageSquare, Bot } from "lucide-react";
 import Image from "next/image";
 import { AnimatedTabs } from "@/components/animated-tabs";
 import { FileUpload } from "@/components/file-upload";
@@ -13,8 +13,11 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { LocaleToggle } from "@/components/locale-toggle";
 import { RotatingText } from "@/components/rotating-text";
 import { useChat } from "@/hooks/use-chat";
+import { useAgentChat } from "@/hooks/use-agent-chat";
 import { useI18n } from "@/lib/i18n";
 import { parseFileClientSide } from "@/lib/client-parsers";
+
+type AppMode = "analysis" | "chat";
 
 interface DocumentState {
   id: string;
@@ -33,16 +36,28 @@ const FILE_TYPES = [".PDF", ".DOCX", ".PPTX", ".XLSX", ".CSV", ".TXT", ".MD", ".
 
 export default function Home() {
   const { t } = useI18n();
+  const [appMode, setAppMode] = useState<AppMode>("analysis");
   const [document, setDocument] = useState<DocumentState | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [activeTab, setActiveTab] = useState("upload");
 
+  // Document chat
   const { messages, isLoading, sendMessage, clearMessages } = useChat(
     document?.id || null
   );
 
+  // Agent chat (standalone, with web search)
+  const {
+    messages: agentMessages,
+    isLoading: agentLoading,
+    toolStatus,
+    sendMessage: agentSend,
+    clearMessages: agentClear,
+  } = useAgentChat();
+
   const suggestedQuestions = [t.sq1, t.sq2, t.sq3, t.sq4, t.sq5];
+  const agentSuggestedQuestions = [t.agentSq1, t.agentSq2, t.agentSq3, t.agentSq4];
 
   const handleFileUpload = useCallback(async (file: File) => {
     setIsUploading(true);
@@ -57,7 +72,6 @@ export default function Home() {
     }, 500);
 
     try {
-      // Parse file client-side to avoid Vercel's 4.5MB body limit
       const parsed = await parseFileClientSide(file);
       if (!parsed.text.trim()) {
         throw new Error("Could not extract text from the document.");
@@ -82,7 +96,6 @@ export default function Home() {
       }
 
       const data = await response.json();
-
       setUploadProgress(100);
 
       setDocument({
@@ -112,6 +125,11 @@ export default function Home() {
     setActiveTab("upload");
   };
 
+  const handleLogoClick = () => {
+    setAppMode("analysis");
+    handleNewDocument();
+  };
+
   return (
     <div className="flex min-h-screen flex-col">
       {/* Header */}
@@ -122,21 +140,75 @@ export default function Home() {
         className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-lg"
       >
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
-          <div className="flex items-center gap-2">
-            <Image
-              src="/logotip.webp"
-              alt="Xivex"
-              width={32}
-              height={32}
-              className="size-8 dark:invert-0 invert"
-              priority
-            />
-            <span className="text-xl font-bold tracking-tight">
-              Xi<span className="text-primary">vex</span>
-            </span>
+          {/* Left: logo + mode switcher */}
+          <div className="flex items-center gap-4">
+            <button
+              onClick={handleLogoClick}
+              className="flex items-center gap-2 cursor-pointer hover:opacity-80 active:scale-[0.97] transition-all duration-150"
+            >
+              <Image
+                src="/logotip.webp"
+                alt="Xivex"
+                width={32}
+                height={32}
+                className="size-8 dark:invert-0 invert"
+                priority
+              />
+              <span className="text-xl font-bold tracking-tight">
+                Xi<span className="text-primary">vex</span>
+              </span>
+            </button>
+
+            {/* Mode switcher */}
+            <div className="hidden sm:flex items-center rounded-lg border bg-muted/50 p-0.5">
+              <button
+                onClick={() => setAppMode("analysis")}
+                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all duration-200 cursor-pointer ${
+                  appMode === "analysis"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <FileSearch className="size-3.5" />
+                {t.modeAnalysis}
+              </button>
+              <button
+                onClick={() => setAppMode("chat")}
+                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all duration-200 cursor-pointer ${
+                  appMode === "chat"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Bot className="size-3.5" />
+                {t.modeChat}
+              </button>
+            </div>
           </div>
+
+          {/* Right: controls */}
           <div className="flex items-center gap-2">
-            {document && (
+            {/* Mobile mode switcher */}
+            <div className="flex sm:hidden items-center rounded-lg border bg-muted/50 p-0.5">
+              <button
+                onClick={() => setAppMode("analysis")}
+                className={`rounded-md p-1.5 transition-all cursor-pointer ${
+                  appMode === "analysis" ? "bg-background shadow-sm" : "text-muted-foreground"
+                }`}
+              >
+                <FileSearch className="size-4" />
+              </button>
+              <button
+                onClick={() => setAppMode("chat")}
+                className={`rounded-md p-1.5 transition-all cursor-pointer ${
+                  appMode === "chat" ? "bg-background shadow-sm" : "text-muted-foreground"
+                }`}
+              >
+                <Bot className="size-4" />
+              </button>
+            </div>
+
+            {appMode === "analysis" && document && (
               <button
                 onClick={handleNewDocument}
                 className="text-sm text-muted-foreground hover:text-foreground cursor-pointer active:scale-[0.97] transition-all duration-150"
@@ -152,7 +224,31 @@ export default function Home() {
 
       {/* Main content */}
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6">
-        {!document ? (
+        {appMode === "chat" ? (
+          /* Agent chat mode */
+          <motion.div
+            key="agent-chat"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, ease: "easeOut" }}
+            className="h-[calc(100vh-120px)]"
+          >
+            <div className="h-full rounded-xl border bg-card overflow-hidden max-w-4xl mx-auto">
+              <ChatInterface
+                messages={agentMessages}
+                isLoading={agentLoading}
+                onSendMessage={agentSend}
+                onClear={agentClear}
+                suggestedQuestions={agentSuggestedQuestions}
+                toolStatus={toolStatus}
+                title={t.agentTitle}
+                emptyText={t.agentEmpty}
+                emptyHint={t.agentEmptyHint}
+                placeholder={t.agentPlaceholder}
+              />
+            </div>
+          </motion.div>
+        ) : !document ? (
           /* Landing / Upload state */
           <div className="flex flex-col items-center justify-center py-8 md:py-16">
             <motion.div
@@ -192,7 +288,6 @@ export default function Home() {
                 progress={uploadProgress}
               />
             </motion.div>
-
           </div>
         ) : (
           /* Document view with tabs */
@@ -266,7 +361,6 @@ export default function Home() {
           </motion.div>
         )}
       </main>
-
     </div>
   );
 }
