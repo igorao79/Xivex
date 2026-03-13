@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "sonner";
 import { I18nProvider } from "@/lib/i18n";
+import { SessionProvider } from "next-auth/react";
 
 const inter = Inter({ subsets: ["latin", "cyrillic"] });
 
@@ -36,9 +37,11 @@ export default function RootLayout({
         />
       </head>
       <body className={`${inter.className} antialiased`}>
-        <I18nProvider>
-          {children}
-        </I18nProvider>
+        <SessionProvider>
+          <I18nProvider>
+            {children}
+          </I18nProvider>
+        </SessionProvider>
         <Toaster position="top-center" richColors />
       </body>
     </html>

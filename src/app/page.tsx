@@ -12,6 +12,7 @@ import { ChatSidebar } from "@/components/chat-sidebar";
 import { ReportView } from "@/components/report-view";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LocaleToggle } from "@/components/locale-toggle";
+import { UserMenu } from "@/components/user-menu";
 import { RotatingText } from "@/components/rotating-text";
 import { useChat } from "@/hooks/use-chat";
 import { useAgentChat } from "@/hooks/use-agent-chat";
@@ -329,6 +330,7 @@ export default function Home() {
             )}
             <LocaleToggle />
             <ThemeToggle />
+            <UserMenu />
           </div>
         </div>
       </motion.header>

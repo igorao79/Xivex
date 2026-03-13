@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
+import { useSession } from "next-auth/react";
 
 export interface Conversation {
   id: string;
@@ -10,26 +11,21 @@ export interface Conversation {
   updatedAt: number;
 }
 
-function getUserId(): string {
-  if (typeof window === "undefined") return "";
-  let uid = localStorage.getItem("xivex_uid");
-  if (!uid) {
-    uid = crypto.randomUUID();
-    localStorage.setItem("xivex_uid", uid);
-  }
-  return uid;
-}
-
 export function useConversations() {
+  const { data: session, status } = useSession();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
 
-  const userId = typeof window !== "undefined" ? getUserId() : "";
+  const userId = session?.user?.id || null;
 
-  // Load conversations on mount
+  // Load conversations on mount (only if authenticated)
   const loadConversations = useCallback(async () => {
-    if (!userId) return;
+    if (!userId) {
+      setConversations([]);
+      setIsLoaded(true);
+      return;
+    }
     try {
       const res = await fetch(`/api/conversations?userId=${userId}`);
       if (res.ok) {
@@ -44,8 +40,10 @@ export function useConversations() {
   }, [userId]);
 
   useEffect(() => {
-    loadConversations();
-  }, [loadConversations]);
+    if (status !== "loading") {
+      loadConversations();
+    }
+  }, [loadConversations, status]);
 
   // Create a new conversation
   const createConversation = useCallback(
@@ -53,28 +51,29 @@ export function useConversations() {
       const id = crypto.randomUUID();
       const title = mode === "chat" ? "New chat" : "New analysis";
 
-      try {
-        await fetch("/api/conversations", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id, userId, title, mode }),
-        });
-
-        const conv: Conversation = {
-          id,
-          title,
-          mode,
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-        };
-
-        setConversations((prev) => [conv, ...prev]);
-        setActiveId(id);
-        return id;
-      } catch (err) {
-        console.error("Failed to create conversation:", err);
-        return id; // Still return id for local usage
+      if (userId) {
+        try {
+          await fetch("/api/conversations", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id, userId, title, mode }),
+          });
+        } catch (err) {
+          console.error("Failed to create conversation:", err);
+        }
       }
+
+      const conv: Conversation = {
+        id,
+        title,
+        mode,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+
+      setConversations((prev) => [conv, ...prev]);
+      setActiveId(id);
+      return id;
     },
     [userId]
   );
@@ -124,6 +123,7 @@ export function useConversations() {
         sources?: { title: string; url: string }[];
       }
     ) => {
+      if (!userId) return; // Don't persist without auth
       try {
         await fetch(`/api/conversations/${conversationId}/messages`, {
           method: "POST",
@@ -134,7 +134,7 @@ export function useConversations() {
         console.error("Failed to save message:", err);
       }
     },
-    []
+    [userId]
   );
 
   // Update a message in DB (for streaming completion)
@@ -145,6 +145,7 @@ export function useConversations() {
       content: string,
       sources?: { title: string; url: string }[]
     ) => {
+      if (!userId) return;
       try {
         await fetch(`/api/conversations/${conversationId}/messages`, {
           method: "POST",
@@ -155,7 +156,7 @@ export function useConversations() {
         console.error("Failed to update message:", err);
       }
     },
-    []
+    [userId]
   );
 
   // Load messages for a conversation
@@ -182,6 +183,7 @@ export function useConversations() {
     activeId,
     setActiveId,
     isLoaded,
+    isAuthenticated: !!userId,
     createConversation,
     updateTitle,
     deleteConversation,

@@ -47,6 +47,40 @@ export async function initDB() {
       sql: `CREATE INDEX IF NOT EXISTS idx_msg_conv ON messages(conversation_id)`,
       args: [],
     },
+    // ── Auth tables ──
+    {
+      sql: `CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        name TEXT,
+        email TEXT UNIQUE NOT NULL,
+        password TEXT,
+        image TEXT,
+        created_at INTEGER NOT NULL DEFAULT 0
+      )`,
+      args: [],
+    },
+    {
+      sql: `CREATE TABLE IF NOT EXISTS accounts (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        provider TEXT NOT NULL,
+        provider_account_id TEXT NOT NULL,
+        type TEXT NOT NULL DEFAULT 'oauth',
+        access_token TEXT,
+        refresh_token TEXT,
+        expires_at INTEGER,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )`,
+      args: [],
+    },
+    {
+      sql: `CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_provider ON accounts(provider, provider_account_id)`,
+      args: [],
+    },
+    {
+      sql: `CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`,
+      args: [],
+    },
   ]);
 
   initialized = true;
@@ -191,6 +225,100 @@ export async function updateMessage(
     sql: `UPDATE messages SET content = ?, sources = ? WHERE id = ?`,
     args: [content, sources ? JSON.stringify(sources) : null, messageId],
   });
+}
+
+// ── Users CRUD (for NextAuth) ─────────────────────────────────────────────
+
+export async function getUserByEmail(email: string) {
+  await initDB();
+  const result = await db.execute({
+    sql: `SELECT id, name, email, password, image FROM users WHERE email = ?`,
+    args: [email],
+  });
+  if (result.rows.length === 0) return null;
+  const r = result.rows[0];
+  return {
+    id: r.id as string,
+    name: r.name as string | null,
+    email: r.email as string,
+    password: r.password as string | null,
+    image: r.image as string | null,
+  };
+}
+
+export async function getUserById(id: string) {
+  await initDB();
+  const result = await db.execute({
+    sql: `SELECT id, name, email, image FROM users WHERE id = ?`,
+    args: [id],
+  });
+  if (result.rows.length === 0) return null;
+  const r = result.rows[0];
+  return {
+    id: r.id as string,
+    name: r.name as string | null,
+    email: r.email as string,
+    image: r.image as string | null,
+  };
+}
+
+export async function createUser(user: {
+  id: string;
+  name: string;
+  email: string;
+  password?: string;
+  image?: string;
+}) {
+  await initDB();
+  await db.execute({
+    sql: `INSERT INTO users (id, name, email, password, image, created_at)
+          VALUES (?, ?, ?, ?, ?, ?)`,
+    args: [user.id, user.name, user.email, user.password || null, user.image || null, Date.now()],
+  });
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    password: user.password || null,
+    image: user.image || null,
+  };
+}
+
+export async function linkAccount(account: {
+  userId: string;
+  provider: string;
+  providerAccountId: string;
+  type: string;
+  accessToken?: string;
+  refreshToken?: string;
+  expiresAt?: number;
+}) {
+  await initDB();
+  const id = crypto.randomUUID();
+  await db.execute({
+    sql: `INSERT INTO accounts (id, user_id, provider, provider_account_id, type, access_token, refresh_token, expires_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    args: [
+      id,
+      account.userId,
+      account.provider,
+      account.providerAccountId,
+      account.type,
+      account.accessToken || null,
+      account.refreshToken || null,
+      account.expiresAt || null,
+    ],
+  });
+}
+
+export async function getAccountByProvider(provider: string, providerAccountId: string) {
+  await initDB();
+  const result = await db.execute({
+    sql: `SELECT user_id FROM accounts WHERE provider = ? AND provider_account_id = ?`,
+    args: [provider, providerAccountId],
+  });
+  if (result.rows.length === 0) return null;
+  return { userId: result.rows[0].user_id as string };
 }
 
 export default db;
