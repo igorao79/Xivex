@@ -40,7 +40,7 @@ function isTitleRelevant(title: string, query: string): boolean {
 }
 
 /**
- * Search Google via Jina Reader — parses real search result titles, URLs, and snippets
+ * Search via DuckDuckGo + Jina Reader — parses titles, URLs, and snippets
  */
 export async function searchGoogle(
   query: string,
@@ -49,7 +49,7 @@ export async function searchGoogle(
   try {
     const q = encodeURIComponent(query);
     const res = await fetch(
-      `https://r.jina.ai/https://www.google.com/search?q=${q}&num=10&hl=en`,
+      `https://r.jina.ai/https://html.duckduckgo.com/html/?q=${q}`,
       {
         headers: { Accept: "text/plain" },
         signal: AbortSignal.timeout(15000),
@@ -57,35 +57,41 @@ export async function searchGoogle(
     );
     if (!res.ok) return [];
 
-    const rawText = await res.text();
-    // Join broken lines — Jina sometimes splits a single [### ...](url) across lines
-    const text = rawText.replace(/\n(?!\[|\*|#|$)/g, " ");
+    const text = await res.text();
     const results: SearchResult[] = [];
     const seen = new Set<string>();
 
-    // Pattern: [### Title ... ](actual-url)
-    const blockRegex =
-      /\[###\s+(.+?)\s+(?:!\[Image[^\]]*\]\([^)]*\)\s*)?[^\]]*\]\((https?:\/\/[^\s)]+)\)/g;
+    // DuckDuckGo results come as [Title](duckduckgo.com/l/?uddg=encoded_url)
+    // Each result appears 3 times: title link, bare URL link, snippet link
+    // We collect them in groups
+    const linkRegex = /\[([^\]]{5,})\]\(https:\/\/duckduckgo\.com\/l\/\?uddg=([^&\s)]+)/g;
 
     let match;
-    while ((match = blockRegex.exec(text)) !== null && results.length < limit) {
+    const rawEntries: { title: string; url: string; snippet: string }[] = [];
+
+    while ((match = linkRegex.exec(text)) !== null) {
       const rawTitle = match[1].trim();
-      const actualUrl = match[2].replace(/#.*$/, "").replace(/\/$/, "");
-      // Clean title — remove image refs and source names embedded in it
-      const title = rawTitle
-        .replace(/!\[Image[^\]]*\]\([^)]*\)/g, "")
-        .replace(/\s+(Wikipedia|Encyclopedia Britannica|BBC|Biography|World History Encyclopedia|Library of Congress.*|AlexanderPalace.*|International Encyclopedia.*)$/i, "")
-        .trim();
+      const encodedUrl = match[2];
+
+      let url: string;
+      try {
+        url = decodeURIComponent(encodedUrl);
+      } catch {
+        continue;
+      }
+
+      // Skip DDG ad tracking URLs
+      if (url.includes("duckduckgo.com/y.js")) continue;
+      if (url.includes("duckduckgo.com")) continue;
 
       try {
-        const parsed = new URL(actualUrl);
+        const parsed = new URL(url);
         const host = parsed.hostname.replace("www.", "");
+        const key = host + parsed.pathname.replace(/\/$/, "");
 
-        // Skip Google, Facebook, social media noise
+        // Skip social media and noise
         if (
-          host.includes("google.com") ||
           host.includes("facebook.com") ||
-          host.includes("gstatic.com") ||
           host.includes("x.com") ||
           host.includes("twitter.com") ||
           host.includes("youtube.com") ||
@@ -93,42 +99,49 @@ export async function searchGoogle(
         )
           continue;
 
-        if (seen.has(host + parsed.pathname)) continue;
-        seen.add(host + parsed.pathname);
+        // Check if it's a title (not a bare URL, not bold snippet text)
+        const isBareUrl = rawTitle === url || rawTitle.startsWith("http") || rawTitle.startsWith("www.");
+        const isSnippet = rawTitle.includes("**") || rawTitle.length > 100;
 
-        // Get snippet — text after the result block
-        const afterIdx = match.index + match[0].length;
-        const afterText = text.substring(afterIdx, afterIdx + 1200);
-        // Remove all markdown links, images, and URL fragments
-        const cleanedAfter = afterText
-          .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1") // [text](url) -> text
-          .replace(/!\[[^\]]*\]\([^)]*\)/g, "")     // ![alt](url) -> ""
-          .replace(/https?:\/\/[^\s)]+/g, "")        // bare URLs
-          .replace(/\*\*/g, "")
-          .replace(/_/g, "")
-          .replace(/<[^>]+>/g, "")
-          .replace(/Read\s*more\s*(###)?/gi, "")
-          .replace(/\s+/g, " ");
-        // Split on sentence-like boundaries and find real text
-        const sentences = cleanedAfter
-          .split(/(?<=[.!?])\s+/)
-          .map((s) => s.trim())
-          .filter(
-            (s) =>
-              s.length > 40 &&
-              !/^[\[\#\*\!]/.test(s) &&
-              !/^(more|Translate|Feedback)\b/i.test(s) &&
-              !s.includes("›") &&
-              !/^\w+\.\w+\s/.test(s) &&
-              (s.match(/\s/g) || []).length >= 4
-          );
-        const snippet = sentences.length > 0
-          ? sentences[0].replace(/^[\s—–-]+/, "").substring(0, 200)
-          : "";
+        if (isBareUrl) continue;
 
-        if (title.length >= 5) {
-          results.push({ title, url: actualUrl, snippet, source: host });
+        if (isSnippet) {
+          // This is a snippet for the previous entry
+          if (rawEntries.length > 0 && rawEntries[rawEntries.length - 1].url === url) {
+            const cleanSnippet = rawTitle
+              .replace(/\*\*/g, "")
+              .replace(/<[^>]+>/g, "")
+              .trim();
+            rawEntries[rawEntries.length - 1].snippet = cleanSnippet.substring(0, 250);
+          }
+          continue;
         }
+
+        // It's a title
+        if (seen.has(key)) continue;
+        seen.add(key);
+
+        rawEntries.push({
+          title: rawTitle.replace(/ - [^-]+$/, "").trim(),
+          url: url.replace(/#.*$/, "").replace(/\/$/, ""),
+          snippet: "",
+        });
+      } catch {
+        continue;
+      }
+    }
+
+    // Build results
+    for (const entry of rawEntries.slice(0, limit)) {
+      try {
+        const parsed = new URL(entry.url);
+        const host = parsed.hostname.replace("www.", "");
+        results.push({
+          title: entry.title,
+          url: entry.url,
+          snippet: entry.snippet,
+          source: host,
+        });
       } catch {
         continue;
       }

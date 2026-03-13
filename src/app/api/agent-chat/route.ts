@@ -19,7 +19,7 @@ const tools: any[] = [
         properties: {
           query: {
             type: "string",
-            description: "Search query in English for best results",
+            description: "Search query — ALWAYS write in English for best results, even if the user's message is in another language. Translate the user's intent to English.",
           },
         },
         required: ["query"],
@@ -43,18 +43,17 @@ const tools: any[] = [
   },
 ];
 
-const SYSTEM_PROMPT = `You are Xivex AI — a helpful research assistant with web search capabilities.
+const SYSTEM_PROMPT = `You are Xivex AI — a multilingual research assistant with real-time web search.
 
-You can use tools to search the web and read pages to answer questions accurately.
-
-Guidelines:
-- Search the web when you need current information, facts, or data
-- After searching, read specific pages to get detailed content
-- Always cite your sources with [Title](URL) markdown links
-- Use Markdown formatting: headings, bullet points, bold, tables
-- Answer in the same language as the user's question
-- Be thorough but concise — no filler
-- If you already know the answer with certainty, you can respond directly without searching`;
+IMPORTANT RULES:
+1. For ANY question about current events, news, trends, comparisons, prices, statistics, or anything time-sensitive — you MUST use web_search first. Do NOT answer from memory for these topics.
+2. After searching, use read_page on 1-2 of the most relevant URLs to get detailed information.
+3. Always respond in the SAME LANGUAGE as the user's message. If user writes in Russian — respond in Russian. If in English — respond in English.
+4. Always cite sources with [Title](URL) markdown links inline.
+5. Use rich Markdown: ## headings, **bold**, bullet points, tables when appropriate.
+6. Be thorough but concise — no filler text.
+7. For simple factual questions (math, definitions you're certain about) you may answer directly.
+8. When searching, use English queries for best results, but ALWAYS respond in the user's language.`;
 
 /** Fetch a page's text content via Jina Reader */
 async function readPage(url: string): Promise<string> {
@@ -141,12 +140,14 @@ export async function POST(request: NextRequest) {
             const choice = response.choices[0];
             const assistantMsg = choice.message;
 
-            if (choice.finish_reason === "tool_calls" && assistantMsg.tool_calls) {
+            const hasToolCalls = assistantMsg.tool_calls && assistantMsg.tool_calls.length > 0;
+
+            if (hasToolCalls) {
               // Append assistant message with tool calls
               messages.push(assistantMsg);
 
               // Execute each tool call
-              for (const toolCall of assistantMsg.tool_calls) {
+              for (const toolCall of assistantMsg.tool_calls!) {
                 const fnName = toolCall.function.name;
                 let args: Record<string, string> = {};
                 try {
@@ -195,23 +196,39 @@ export async function POST(request: NextRequest) {
               continue;
             }
 
-            // Final text response — stream it
-            const finalStream = await groq.chat.completions.create({
-              model: AGENT_MODEL,
-              messages,
-              stream: true,
-              temperature: 0.3,
-              max_tokens: 4096,
-            });
-
-            for await (const chunk of finalStream) {
-              const content = chunk.choices[0]?.delta?.content || "";
-              if (content) {
+            // Final text response — if we already have content, send it;
+            // otherwise do a streaming call for the final answer
+            if (assistantMsg.content) {
+              // Model responded with text directly (no tools needed)
+              // Stream it back in chunks for smoother UX
+              const text = assistantMsg.content;
+              const chunkSize = 4;
+              for (let i = 0; i < text.length; i += chunkSize) {
                 controller.enqueue(
                   encoder.encode(
-                    sseEvent(JSON.stringify({ content }))
+                    sseEvent(JSON.stringify({ content: text.slice(i, i + chunkSize) }))
                   )
                 );
+              }
+            } else {
+              // After tool calls, do a streaming call for the final answer
+              const finalStream = await groq.chat.completions.create({
+                model: AGENT_MODEL,
+                messages,
+                stream: true,
+                temperature: 0.3,
+                max_tokens: 4096,
+              });
+
+              for await (const chunk of finalStream) {
+                const content = chunk.choices[0]?.delta?.content || "";
+                if (content) {
+                  controller.enqueue(
+                    encoder.encode(
+                      sseEvent(JSON.stringify({ content }))
+                    )
+                  );
+                }
               }
             }
 
