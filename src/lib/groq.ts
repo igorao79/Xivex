@@ -50,13 +50,12 @@ export async function generateReport(
 IMAGES — you have these images available. You may embed them INSIDE the text ONLY if they are DIRECTLY relevant to the content being discussed:
 ${images.map((img, i) => `  img${i + 1}: "${img.title}" → ![Рис. ${i + 1} — ${img.title}](${img.image})`).join("\n")}
 
-STRICT rules for images:
-- ONLY use an image if it clearly depicts a person, place, event, or object SPECIFICALLY mentioned in the document
-- Do NOT use generic/decorative images (book covers, icons, flags, logos, stock photos)
-- If an image title does NOT match a specific topic from the document — DO NOT use it
-- It is perfectly fine to use ZERO images if none are truly relevant
+Rules for images:
+- Use an image ONLY if its title clearly relates to a topic discussed in the document (people, places, events, objects, diagrams, maps, scientific concepts, artworks, etc.)
+- Do NOT use generic/decorative images: plain book covers, category icons, flags, logos, stock photos, or images whose title is just a broad category (e.g. "Subjects: History")
+- It is perfectly fine to use ZERO images if none are relevant to the document's content
 - NEVER group images together. NEVER create an "Images" / "Illustrations" / "Gallery" section
-- Place each image between paragraphs where the depicted subject is discussed
+- Place each image between paragraphs where its subject is discussed
 - Maximum 3 images`
       : "";
 
