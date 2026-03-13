@@ -59,6 +59,12 @@ const translations = {
     agentSq2: "Сравни React и Vue в 2026 году",
     agentSq3: "Объясни квантовые вычисления простыми словами",
     agentSq4: "Какие тренды в AI сейчас?",
+    // Actions
+    copy: "Копировать",
+    copied: "Скопировано!",
+    regenerate: "Перегенерировать",
+    sources: "Источники",
+    sourcesCount: "источн.",
   },
   en: {
     // Landing
@@ -114,6 +120,12 @@ const translations = {
     agentSq2: "Compare React vs Vue in 2026",
     agentSq3: "Explain quantum computing in simple terms",
     agentSq4: "What are the current AI trends?",
+    // Actions
+    copy: "Copy",
+    copied: "Copied!",
+    regenerate: "Regenerate",
+    sources: "Sources",
+    sourcesCount: "sources",
   },
 };
 

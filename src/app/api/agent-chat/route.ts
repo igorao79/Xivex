@@ -122,6 +122,7 @@ export async function POST(request: NextRequest) {
       async start(controller) {
         try {
           let iterations = 0;
+          const collectedSources: { title: string; url: string }[] = [];
 
           // Tool-calling loop
           while (iterations < MAX_TOOL_ITERATIONS) {
@@ -184,6 +185,20 @@ export async function POST(request: NextRequest) {
                 // Execute tool
                 const result = await executeTool(fnName, args);
 
+                // Collect sources from web_search results
+                if (fnName === "web_search") {
+                  try {
+                    const searchResults = JSON.parse(result);
+                    if (Array.isArray(searchResults)) {
+                      for (const r of searchResults) {
+                        if (r.title && r.url && !collectedSources.some((s) => s.url === r.url)) {
+                          collectedSources.push({ title: r.title, url: r.url });
+                        }
+                      }
+                    }
+                  } catch {}
+                }
+
                 // Append tool result
                 messages.push({
                   role: "tool",
@@ -194,6 +209,15 @@ export async function POST(request: NextRequest) {
 
               // Continue loop for next LLM call
               continue;
+            }
+
+            // Send collected sources before final answer
+            if (collectedSources.length > 0) {
+              controller.enqueue(
+                encoder.encode(
+                  sseEvent(JSON.stringify({ sources: collectedSources }))
+                )
+              );
             }
 
             // Final text response — if we already have content, send it;

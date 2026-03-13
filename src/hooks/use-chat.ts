@@ -2,11 +2,17 @@
 
 import { useState, useCallback } from "react";
 
+export interface MessageSource {
+  title: string;
+  url: string;
+}
+
 export interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
   timestamp: number;
+  sources?: MessageSource[];
 }
 
 export function useChat(documentId: string | null) {
