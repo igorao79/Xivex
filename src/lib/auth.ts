@@ -1,4 +1,5 @@
 import NextAuth from "next-auth";
+import type { Provider } from "next-auth/providers";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 import GitHub from "next-auth/providers/github";
@@ -11,17 +12,29 @@ import {
   getAccountByProvider,
 } from "@/lib/db";
 
-export const { handlers, signIn, signOut, auth } = NextAuth({
-  providers: [
+// Only include OAuth providers when env vars are configured
+const providers: Provider[] = [];
+
+if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+  providers.push(
     Google({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    }),
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    })
+  );
+}
+
+if (process.env.GITHUB_ID && process.env.GITHUB_CLIENT_SECRET) {
+  providers.push(
     GitHub({
-      clientId: process.env.GITHUB_ID!,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-    }),
-    Credentials({
+      clientId: process.env.GITHUB_ID,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET,
+    })
+  );
+}
+
+providers.push(
+  Credentials({
       name: "credentials",
       credentials: {
         email: { label: "Email", type: "email" },
@@ -46,8 +59,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           image: user.image,
         };
       },
-    }),
-  ],
+  })
+);
+
+export const { handlers, signIn, signOut, auth } = NextAuth({
+  providers,
 
   session: { strategy: "jwt" },
 
