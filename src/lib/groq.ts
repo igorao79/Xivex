@@ -47,12 +47,17 @@ export async function generateReport(
     images.length > 0
       ? `
 
-IMAGES — you have these images. Embed them INSIDE the text paragraphs where relevant:
+IMAGES — you have these images available. You may embed them INSIDE the text ONLY if they are DIRECTLY relevant to the content being discussed:
 ${images.map((img, i) => `  img${i + 1}: "${img.title}" → ![Рис. ${i + 1} — ${img.title}](${img.image})`).join("\n")}
 
-When you write about a topic and one of the images matches — paste its ![Рис. N — ...](url) line right there, between paragraphs.
-NEVER group images together. NEVER create an "Images" / "Illustrations" / "Gallery" section.
-If an image doesn't fit any paragraph — skip it. Use 2-5 images max.`
+STRICT rules for images:
+- ONLY use an image if it clearly depicts a person, place, event, or object SPECIFICALLY mentioned in the document
+- Do NOT use generic/decorative images (book covers, icons, flags, logos, stock photos)
+- If an image title does NOT match a specific topic from the document — DO NOT use it
+- It is perfectly fine to use ZERO images if none are truly relevant
+- NEVER group images together. NEVER create an "Images" / "Illustrations" / "Gallery" section
+- Place each image between paragraphs where the depicted subject is discussed
+- Maximum 3 images`
       : "";
 
   const systemPrompt = `You are an expert document analyst. Produce a thorough, well-structured analysis report in Markdown.
