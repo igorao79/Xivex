@@ -14,6 +14,7 @@ import { LocaleToggle } from "@/components/locale-toggle";
 import { RotatingText } from "@/components/rotating-text";
 import { useChat } from "@/hooks/use-chat";
 import { useI18n } from "@/lib/i18n";
+import { parseFileClientSide } from "@/lib/client-parsers";
 
 interface DocumentState {
   id: string;
@@ -55,18 +56,26 @@ export default function Home() {
     }, 500);
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
+      // Parse file client-side to avoid Vercel's 4.5MB body limit
+      const parsed = await parseFileClientSide(file);
+      if (!parsed.text.trim()) {
+        throw new Error("Could not extract text from the document.");
+      }
 
+      const ext = file.name.split(".").pop()?.toLowerCase() || "";
       const response = await fetch("/api/upload", {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: parsed.text,
+          fileName: file.name,
+          fileType: ext,
+          fileSize: file.size,
+          pageCount: parsed.pageCount,
+        }),
       });
 
       if (!response.ok) {
-        if (response.status === 413) {
-          throw new Error("File too large. Maximum size is 50 MB.");
-        }
         const err = await response.json().catch(() => ({ error: "Upload failed" }));
         throw new Error(err.error || "Upload failed");
       }

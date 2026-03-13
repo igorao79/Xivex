@@ -1,37 +1,44 @@
 import { NextRequest, NextResponse } from "next/server";
-import { parseDocument } from "@/lib/parsers";
 import { storeDocument } from "@/lib/store";
 import { generateReport, extractSearchQueries } from "@/lib/groq";
 import { searchForTopics } from "@/lib/search";
+import type { ParsedDocument } from "@/lib/parsers";
 
 export const maxDuration = 60;
 
+/**
+ * Accepts pre-parsed text from client-side parsing.
+ * This avoids Vercel's 4.5MB request body limit for file uploads.
+ */
 export async function POST(request: NextRequest) {
   try {
-    const formData = await request.formData();
-    const file = formData.get("file") as File | null;
+    const { text, fileName, fileType, fileSize, pageCount } = await request.json();
 
-    if (!file) {
-      return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
-    }
-
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    const id = `doc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-
-    const parsed = await parseDocument(buffer, file.name, file.type);
-
-    if (!parsed.text.trim()) {
+    if (!text || !text.trim()) {
       return NextResponse.json(
         { error: "Could not extract text from the document. The file may be empty or in an unsupported format." },
         { status: 400 }
       );
     }
 
+    const wordCount = text.split(/\s+/).filter(Boolean).length;
+    const id = `doc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+    const parsed: ParsedDocument = {
+      text,
+      metadata: {
+        fileName: fileName || "document",
+        fileType: fileType || "txt",
+        fileSize: fileSize || 0,
+        pageCount,
+        wordCount,
+      },
+    };
+
     const doc = storeDocument(id, parsed);
 
     // Step 1: Extract search queries
-    const queries = await extractSearchQueries(parsed.text, file.name);
+    const queries = await extractSearchQueries(parsed.text, fileName);
 
     // Step 2: Search for articles and images
     let searchData = { articles: [] as any[], images: [] as any[] };
@@ -44,7 +51,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Step 3: Generate report with images embedded inline
-    const report = await generateReport(parsed.text, file.name, searchData.images);
+    const report = await generateReport(parsed.text, fileName, searchData.images);
 
     return NextResponse.json({
       id: doc.id,
