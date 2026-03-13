@@ -50,8 +50,9 @@ export default function Home() {
 
     const progressInterval = setInterval(() => {
       setUploadProgress((prev) => {
-        if (prev >= 90) return prev;
-        return prev + Math.random() * 15;
+        if (prev >= 90) return 90;
+        const next = prev + Math.random() * 12;
+        return Math.min(next, 90);
       });
     }, 500);
 
