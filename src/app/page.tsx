@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { motion } from "motion/react";
 import { FileSearch, MessageSquare, Bot } from "lucide-react";
@@ -8,12 +8,14 @@ import Image from "next/image";
 import { AnimatedTabs } from "@/components/animated-tabs";
 import { FileUpload } from "@/components/file-upload";
 import { ChatInterface } from "@/components/chat-interface";
+import { ChatSidebar } from "@/components/chat-sidebar";
 import { ReportView } from "@/components/report-view";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LocaleToggle } from "@/components/locale-toggle";
 import { RotatingText } from "@/components/rotating-text";
 import { useChat } from "@/hooks/use-chat";
 import { useAgentChat } from "@/hooks/use-agent-chat";
+import { useConversations } from "@/hooks/use-conversations";
 import { useI18n } from "@/lib/i18n";
 import { parseFileClientSide } from "@/lib/client-parsers";
 
@@ -41,10 +43,50 @@ export default function Home() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [activeTab, setActiveTab] = useState("upload");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Conversations (Turso)
+  const {
+    conversations,
+    activeId,
+    setActiveId,
+    createConversation,
+    updateTitle,
+    deleteConversation,
+    saveMessage,
+    updateMessage,
+    loadMessages,
+  } = useConversations();
 
   // Document chat
   const { messages, isLoading, sendMessage, clearMessages } = useChat(
     document?.id || null
+  );
+
+  // Persistence callbacks for agent chat
+  const persist = useMemo(
+    () => ({
+      onUserMessage: async (msg: { id: string; role: string; content: string }) => {
+        if (!activeId) return;
+        saveMessage(activeId, msg);
+        // Auto-title: use first user message as title
+        const conv = conversations.find((c) => c.id === activeId);
+        if (conv && (conv.title === "New chat" || conv.title === "Новый чат")) {
+          const title = msg.content.slice(0, 50) + (msg.content.length > 50 ? "…" : "");
+          updateTitle(activeId, title);
+        }
+      },
+      onAssistantDone: async (msg: {
+        id: string;
+        role: string;
+        content: string;
+        sources?: { title: string; url: string }[];
+      }) => {
+        if (!activeId) return;
+        saveMessage(activeId, msg);
+      },
+    }),
+    [activeId, conversations, saveMessage, updateTitle]
   );
 
   // Agent chat (standalone, with web search)
@@ -55,10 +97,78 @@ export default function Home() {
     sendMessage: agentSend,
     regenerate: agentRegenerate,
     clearMessages: agentClear,
-  } = useAgentChat();
+    setMessagesFromDB,
+  } = useAgentChat(persist);
 
   const suggestedQuestions = [t.sq1, t.sq2, t.sq3, t.sq4, t.sq5];
   const agentSuggestedQuestions = [t.agentSq1, t.agentSq2, t.agentSq3, t.agentSq4];
+
+  // Load messages when active conversation changes
+  useEffect(() => {
+    if (!activeId) {
+      agentClear();
+      return;
+    }
+
+    loadMessages(activeId).then((msgs) => {
+      if (msgs && msgs.length > 0) {
+        setMessagesFromDB(msgs);
+      } else {
+        agentClear();
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeId]);
+
+  // Create a new conversation when user sends first message without an active one
+  const handleAgentSend = useCallback(
+    async (content: string) => {
+      if (!activeId) {
+        const newId = await createConversation("chat");
+        // Small delay to let state update
+        await new Promise((r) => setTimeout(r, 50));
+      }
+      agentSend(content);
+    },
+    [activeId, createConversation, agentSend]
+  );
+
+  // Auto-create conversation on first message
+  const wrappedAgentSend = useCallback(
+    async (content: string) => {
+      if (!activeId) {
+        const newId = await createConversation("chat");
+        // Wait for activeId to update, then send
+        setTimeout(() => agentSend(content), 100);
+      } else {
+        agentSend(content);
+      }
+    },
+    [activeId, createConversation, agentSend]
+  );
+
+  const handleNewChat = useCallback(async () => {
+    await createConversation("chat");
+    agentClear();
+  }, [createConversation, agentClear]);
+
+  const handleSelectConversation = useCallback(
+    (id: string) => {
+      setActiveId(id);
+      setSidebarOpen(false);
+    },
+    [setActiveId]
+  );
+
+  const handleDeleteConversation = useCallback(
+    async (id: string) => {
+      await deleteConversation(id);
+      if (activeId === id) {
+        agentClear();
+      }
+    },
+    [deleteConversation, activeId, agentClear]
+  );
 
   const handleFileUpload = useCallback(async (file: File) => {
     setIsUploading(true);
@@ -166,7 +276,7 @@ export default function Home() {
                 onClick={() => setAppMode("analysis")}
                 className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all duration-200 cursor-pointer ${
                   appMode === "analysis"
-                    ? "bg-primary text-white shadow-sm shadow-primary/25"
+                    ? "bg-primary text-primary-foreground shadow-sm shadow-primary/25"
                     : "text-muted-foreground hover:text-foreground hover:bg-muted"
                 }`}
               >
@@ -177,7 +287,7 @@ export default function Home() {
                 onClick={() => setAppMode("chat")}
                 className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all duration-200 cursor-pointer ${
                   appMode === "chat"
-                    ? "bg-primary text-white shadow-sm shadow-primary/25"
+                    ? "bg-primary text-primary-foreground shadow-sm shadow-primary/25"
                     : "text-muted-foreground hover:text-foreground hover:bg-muted"
                 }`}
               >
@@ -194,7 +304,7 @@ export default function Home() {
               <button
                 onClick={() => setAppMode("analysis")}
                 className={`rounded-md p-1.5 transition-all cursor-pointer ${
-                  appMode === "analysis" ? "bg-primary text-white shadow-sm shadow-primary/25" : "text-muted-foreground"
+                  appMode === "analysis" ? "bg-primary text-primary-foreground shadow-sm shadow-primary/25" : "text-muted-foreground"
                 }`}
               >
                 <FileSearch className="size-4" />
@@ -202,7 +312,7 @@ export default function Home() {
               <button
                 onClick={() => setAppMode("chat")}
                 className={`rounded-md p-1.5 transition-all cursor-pointer ${
-                  appMode === "chat" ? "bg-primary text-white shadow-sm shadow-primary/25" : "text-muted-foreground"
+                  appMode === "chat" ? "bg-primary text-primary-foreground shadow-sm shadow-primary/25" : "text-muted-foreground"
                 }`}
               >
                 <Bot className="size-4" />
@@ -223,6 +333,19 @@ export default function Home() {
         </div>
       </motion.header>
 
+      {/* Chat sidebar (only in chat mode) */}
+      {appMode === "chat" && (
+        <ChatSidebar
+          conversations={conversations.filter((c) => c.mode === "chat")}
+          activeId={activeId}
+          onSelect={handleSelectConversation}
+          onNew={handleNewChat}
+          onDelete={handleDeleteConversation}
+          isOpen={sidebarOpen}
+          onToggle={() => setSidebarOpen(!sidebarOpen)}
+        />
+      )}
+
       {/* Main content */}
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6">
         {appMode === "chat" ? (
@@ -238,7 +361,7 @@ export default function Home() {
               <ChatInterface
                 messages={agentMessages}
                 isLoading={agentLoading}
-                onSendMessage={agentSend}
+                onSendMessage={wrappedAgentSend}
                 onClear={agentClear}
                 onRegenerate={agentRegenerate}
                 suggestedQuestions={agentSuggestedQuestions}

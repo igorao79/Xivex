@@ -65,6 +65,14 @@ const translations = {
     regenerate: "Перегенерировать",
     sources: "Источники",
     sourcesCount: "источн.",
+    // Sidebar
+    newChat: "Новый чат",
+    chatHistory: "История чатов",
+    deleteChat: "Удалить",
+    noHistory: "Нет сохранённых чатов",
+    today: "Сегодня",
+    yesterday: "Вчера",
+    daysAgo: "дн. назад",
   },
   en: {
     // Landing
@@ -126,6 +134,14 @@ const translations = {
     regenerate: "Regenerate",
     sources: "Sources",
     sourcesCount: "sources",
+    // Sidebar
+    newChat: "New chat",
+    chatHistory: "Chat history",
+    deleteChat: "Delete",
+    noHistory: "No saved chats",
+    today: "Today",
+    yesterday: "Yesterday",
+    daysAgo: "days ago",
   },
 };
 
