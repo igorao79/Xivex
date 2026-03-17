@@ -87,7 +87,7 @@ function parseSpreadsheet(buffer: ArrayBuffer): ClientParsedResult {
 /** Parse PDF using pdfjs-dist */
 async function parsePdf(buffer: ArrayBuffer): Promise<ClientParsedResult> {
   const pdfjsLib = await import("pdfjs-dist");
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
   const doc = await pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise;
   const textParts: string[] = [];
