@@ -123,22 +123,6 @@ export default function Home() {
 
   const suggestedQuestions = [t.sq1, t.sq2, t.sq3, t.sq4, t.sq5];
 
-  // Dynamic agent suggestions from trending topics
-  const [agentSuggestedQuestions, setAgentSuggestions] = useState<string[]>([
-    t.agentSq1, t.agentSq2, t.agentSq3, t.agentSq4,
-  ]);
-
-  useEffect(() => {
-    fetch(`/api/suggestions?locale=${locale}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.questions?.length >= 4) {
-          setAgentSuggestions(data.questions.slice(0, 4));
-        }
-      })
-      .catch(() => {});
-  }, [locale]);
-
   // Track whether we just created a new conversation (skip loading/clearing)
   const justCreatedRef = useRef(false);
 
@@ -407,7 +391,7 @@ export default function Home() {
                 onSendMessage={wrappedAgentSend}
                 onClear={agentClear}
                 onRegenerate={agentRegenerate}
-                suggestedQuestions={agentSuggestedQuestions}
+                suggestedQuestions={[]}
                 toolStatus={toolStatus}
                 title={t.agentTitle}
                 emptyText={t.agentEmpty}

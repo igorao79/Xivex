@@ -43,11 +43,113 @@ function isTitleRelevant(title: string, query: string): boolean {
  * Search via SearXNG — uses SEARXNG_URL env var (your own instance)
  * or falls back to public instances
  */
+/** Parse search results from SearXNG HTML page */
+function parseSearXNGHtml(html: string, limit: number): SearchResult[] {
+  const results: SearchResult[] = [];
+  const seen = new Set<string>();
+
+  // SearXNG HTML: <article class="result"> with <a href="URL"> and <h3>Title</h3> and <p class="content">
+  const articleRegex = /<article[^>]*class="[^"]*result[^"]*"[^>]*>([\s\S]*?)<\/article>/gi;
+  let match;
+
+  while ((match = articleRegex.exec(html)) !== null && results.length < limit) {
+    const block = match[1];
+
+    // Extract URL from the first <a href="..."> inside <h3>
+    const urlMatch = block.match(/<h3[^>]*>[\s\S]*?<a[^>]+href="([^"]+)"[^>]*>/i)
+      || block.match(/<a[^>]+href="(https?:\/\/[^"]+)"[^>]*class="[^"]*url[^"]*"/i)
+      || block.match(/<a[^>]+href="(https?:\/\/[^"]+)"[^>]*>/i);
+    if (!urlMatch) continue;
+    const url = urlMatch[1];
+
+    // Extract title
+    const titleMatch = block.match(/<h3[^>]*>([\s\S]*?)<\/h3>/i);
+    const title = titleMatch
+      ? titleMatch[1].replace(/<[^>]+>/g, "").trim()
+      : "";
+    if (!title) continue;
+
+    // Extract snippet
+    const snippetMatch = block.match(/<p[^>]*class="[^"]*content[^"]*"[^>]*>([\s\S]*?)<\/p>/i)
+      || block.match(/<p[^>]*>([\s\S]*?)<\/p>/i);
+    const snippet = snippetMatch
+      ? snippetMatch[1].replace(/<[^>]+>/g, "").trim().substring(0, 250)
+      : "";
+
+    try {
+      const parsed = new URL(url);
+      const host = parsed.hostname.replace("www.", "");
+      const key = host + parsed.pathname.replace(/\/$/, "");
+
+      if (host.includes("facebook.com") || host.includes("x.com") ||
+          host.includes("twitter.com") || host.includes("localhost"))
+        continue;
+      if (seen.has(key)) continue;
+      seen.add(key);
+
+      results.push({ title, url, snippet, source: host });
+    } catch { continue; }
+  }
+
+  return results;
+}
+
+/** Parse search results from DuckDuckGo HTML */
+function parseDDGHtml(html: string, limit: number): SearchResult[] {
+  const results: SearchResult[] = [];
+  const seen = new Set<string>();
+
+  const resultRegex = /<a[^>]+class="[^"]*result__a[^"]*"[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
+  const snippetRegex = /<a[^>]+class="[^"]*result__snippet[^"]*"[^>]*>([\s\S]*?)<\/a>/gi;
+
+  const urls: string[] = [];
+  const titles: string[] = [];
+  const snippets: string[] = [];
+
+  let m;
+  while ((m = resultRegex.exec(html)) !== null) {
+    urls.push(m[1]);
+    titles.push(m[2].replace(/<[^>]+>/g, "").trim());
+  }
+  while ((m = snippetRegex.exec(html)) !== null) {
+    snippets.push(m[1].replace(/<[^>]+>/g, "").trim());
+  }
+
+  for (let i = 0; i < urls.length && results.length < limit; i++) {
+    let url = urls[i];
+    // DDG wraps URLs in redirect: //duckduckgo.com/l/?uddg=...
+    if (url.includes("uddg=")) {
+      const decoded = decodeURIComponent(url.split("uddg=")[1]?.split("&")[0] || "");
+      if (decoded) url = decoded;
+    }
+    if (!url.startsWith("http")) continue;
+
+    try {
+      const parsed = new URL(url);
+      const host = parsed.hostname.replace("www.", "");
+      const key = host + parsed.pathname.replace(/\/$/, "");
+      if (seen.has(key)) continue;
+      seen.add(key);
+
+      results.push({
+        title: titles[i] || "",
+        url,
+        snippet: (snippets[i] || "").substring(0, 250),
+        source: host,
+      });
+    } catch { continue; }
+  }
+
+  return results;
+}
+
+const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+
 export async function searchGoogle(
   query: string,
   limit = 8
 ): Promise<SearchResult[]> {
-  // Your own SearXNG instance first, then public fallbacks
+  // 1. Try SearXNG instances (JSON first, then HTML)
   const instances = [
     process.env.SEARXNG_URL,
     "https://search.sapti.me",
@@ -56,59 +158,74 @@ export async function searchGoogle(
   ].filter(Boolean) as string[];
 
   for (const instance of instances) {
+    // Try JSON format first
     try {
       const params = new URLSearchParams({
-        q: query,
-        format: "json",
-        language: "auto",
-        safesearch: "0",
+        q: query, format: "json", language: "auto", safesearch: "0",
       });
-
       const res = await fetch(`${instance}/search?${params}`, {
-        headers: {
-          Accept: "application/json",
-          "User-Agent": "Mozilla/5.0 (compatible; Xivex/1.0)",
-        },
+        headers: { Accept: "application/json", "User-Agent": UA },
         signal: AbortSignal.timeout(10000),
       });
-
-      if (!res.ok) continue;
-
-      const data = await res.json();
-      if (!data.results?.length) continue;
-
-      const results: SearchResult[] = [];
-      const seen = new Set<string>();
-
-      for (const r of data.results) {
-        if (!r.url || !r.title) continue;
-
-        try {
-          const parsed = new URL(r.url);
-          const host = parsed.hostname.replace("www.", "");
-          const key = host + parsed.pathname.replace(/\/$/, "");
-
-          if (host.includes("facebook.com") || host.includes("x.com") ||
-              host.includes("twitter.com") || host.includes("localhost"))
-            continue;
-
-          if (seen.has(key)) continue;
-          seen.add(key);
-
-          results.push({
-            title: r.title.replace(/<[^>]+>/g, "").trim(),
-            url: r.url,
-            snippet: (r.content || "").replace(/<[^>]+>/g, "").trim().substring(0, 250),
-            source: host,
-          });
-
-          if (results.length >= limit) break;
-        } catch { continue; }
+      if (res.ok) {
+        const data = await res.json();
+        if (data.results?.length) {
+          const results: SearchResult[] = [];
+          const seen = new Set<string>();
+          for (const r of data.results) {
+            if (!r.url || !r.title) continue;
+            try {
+              const parsed = new URL(r.url);
+              const host = parsed.hostname.replace("www.", "");
+              const key = host + parsed.pathname.replace(/\/$/, "");
+              if (host.includes("facebook.com") || host.includes("x.com") ||
+                  host.includes("twitter.com")) continue;
+              if (seen.has(key)) continue;
+              seen.add(key);
+              results.push({
+                title: r.title.replace(/<[^>]+>/g, "").trim(),
+                url: r.url,
+                snippet: (r.content || "").replace(/<[^>]+>/g, "").trim().substring(0, 250),
+                source: host,
+              });
+              if (results.length >= limit) break;
+            } catch { continue; }
+          }
+          if (results.length > 0) return results;
+        }
       }
+    } catch {}
 
-      if (results.length > 0) return results;
-    } catch { continue; }
+    // Fallback: parse HTML from same SearXNG instance
+    try {
+      const params = new URLSearchParams({
+        q: query, language: "auto", safesearch: "0",
+      });
+      const res = await fetch(`${instance}/search?${params}`, {
+        headers: { Accept: "text/html", "User-Agent": UA },
+        signal: AbortSignal.timeout(10000),
+      });
+      if (res.ok) {
+        const html = await res.text();
+        const results = parseSearXNGHtml(html, limit);
+        if (results.length > 0) return results;
+      }
+    } catch {}
   }
+
+  // 2. DuckDuckGo HTML as last resort
+  try {
+    const q = encodeURIComponent(query);
+    const res = await fetch(`https://html.duckduckgo.com/html/?q=${q}`, {
+      headers: { "User-Agent": UA },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (res.ok) {
+      const html = await res.text();
+      const results = parseDDGHtml(html, limit);
+      if (results.length > 0) return results;
+    }
+  } catch {}
 
   return [];
 }

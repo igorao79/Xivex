@@ -45,6 +45,7 @@ const tools: any[] = [
 ];
 
 const SYSTEM_PROMPT = `You are Xivex AI — a multilingual research assistant with real-time web search.
+Today's date: ${new Date().toISOString().split("T")[0]}.
 
 IMPORTANT RULES:
 1. For ANY question about current events, news, trends, comparisons, prices, statistics, or anything time-sensitive — you MUST use web_search first. Do NOT answer from memory for these topics.
@@ -54,7 +55,8 @@ IMPORTANT RULES:
 5. Use rich Markdown: ## headings, **bold**, bullet points, tables when appropriate.
 6. Be thorough but concise — no filler text.
 7. For simple factual questions (math, definitions you're certain about) you may answer directly.
-8. When searching, use English queries for best results, but ALWAYS respond in the user's language.`;
+8. When searching, use English queries for best results, but ALWAYS respond in the user's language.
+9. NEVER say "as of my last update" or reference old dates. You have real-time web search — USE IT.`;
 
 /** Strip HTML tags and extract readable text */
 function htmlToText(html: string): string {
