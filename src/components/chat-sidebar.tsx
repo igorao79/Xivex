@@ -85,7 +85,7 @@ function ConversationItem({
       onClick={() => !isEditing && onSelect()}
     >
       <MessageSquare className="size-4 shrink-0 text-muted-foreground" />
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 overflow-hidden">
         {isEditing ? (
           <input
             ref={inputRef}
@@ -182,7 +182,7 @@ export function ChatSidebar({
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: -280, opacity: 0 }}
               transition={{ duration: 0.2, ease: "easeOut" }}
-              className="fixed left-0 top-14 sm:top-16 bottom-0 z-30 w-[280px] border-r bg-background flex flex-col"
+              className="fixed left-0 top-14 sm:top-16 bottom-0 z-30 w-[280px] border-r bg-background flex flex-col overflow-hidden"
             >
               {/* New chat button */}
               <div className="p-3 border-b">
