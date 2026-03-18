@@ -38,7 +38,7 @@ interface DocumentState {
 const FILE_TYPES = [".PDF", ".DOCX", ".PPTX", ".XLSX", ".CSV", ".TXT", ".MD", ".JSON", ".HTML"];
 
 export default function Home() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [appMode, setAppMode] = useState<AppMode>("analysis");
   const [document, setDocument] = useState<DocumentState | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -112,7 +112,22 @@ export default function Home() {
   } = useAgentChat(persist);
 
   const suggestedQuestions = [t.sq1, t.sq2, t.sq3, t.sq4, t.sq5];
-  const agentSuggestedQuestions = [t.agentSq1, t.agentSq2, t.agentSq3, t.agentSq4];
+
+  // Dynamic agent suggestions from trending topics
+  const [agentSuggestedQuestions, setAgentSuggestions] = useState<string[]>([
+    t.agentSq1, t.agentSq2, t.agentSq3, t.agentSq4,
+  ]);
+
+  useEffect(() => {
+    fetch(`/api/suggestions?locale=${locale}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.questions?.length >= 4) {
+          setAgentSuggestions(data.questions.slice(0, 4));
+        }
+      })
+      .catch(() => {});
+  }, [locale]);
 
   // Load messages when active conversation changes
   useEffect(() => {
