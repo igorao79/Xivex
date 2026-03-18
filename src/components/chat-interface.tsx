@@ -14,6 +14,8 @@ import {
   RefreshCw,
   ChevronDown,
   ExternalLink,
+  ImagePlus,
+  X,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button";
@@ -31,7 +33,7 @@ export interface ToolStatusDisplay {
 interface ChatInterfaceProps {
   messages: Message[];
   isLoading: boolean;
-  onSendMessage: (content: string) => void;
+  onSendMessage: (content: string, image?: string) => void;
   onClear: () => void;
   onRegenerate?: () => void;
   suggestedQuestions?: string[];
@@ -146,8 +148,10 @@ export function ChatInterface({
 }: ChatInterfaceProps) {
   const { t } = useI18n();
   const [input, setInput] = useState("");
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -155,11 +159,24 @@ export function ChatInterface({
     }
   }, [messages]);
 
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) return;
+    if (file.size > 4 * 1024 * 1024) return; // 4MB max
+
+    const reader = new FileReader();
+    reader.onload = () => setImagePreview(reader.result as string);
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (input.trim() && !isLoading) {
-      onSendMessage(input.trim());
+    if ((input.trim() || imagePreview) && !isLoading) {
+      onSendMessage(input.trim(), imagePreview || undefined);
       setInput("");
+      setImagePreview(null);
     }
   };
 
@@ -236,7 +253,16 @@ export function ChatInterface({
                   /* ─── User message ─── */
                   <div className="flex gap-3 justify-end">
                     <div className="max-w-[80%] rounded-2xl rounded-br-sm bg-primary text-primary-foreground px-4 py-3">
-                      <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                      {message.image && (
+                        <img
+                          src={message.image}
+                          alt=""
+                          className="rounded-lg max-h-[200px] w-auto object-contain mb-2"
+                        />
+                      )}
+                      {message.content && (
+                        <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                      )}
                     </div>
                     <div className="mt-1 shrink-0 w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center">
                       <User className="size-4 text-primary" />
@@ -251,7 +277,10 @@ export function ChatInterface({
                     <div className="max-w-[85%] flex flex-col">
                       <div className="rounded-2xl rounded-bl-md bg-muted/60 border border-border/40 px-4 py-3">
                         {message.content ? (
-                          <MarkdownRenderer content={message.content} />
+                          <MarkdownRenderer
+                            content={message.content}
+                            isStreaming={isLoading && idx === messages.length - 1}
+                          />
                         ) : toolStatus ? (
                           <div className="flex items-center gap-2">
                             {toolStatus.type === "searching" ? (
@@ -310,7 +339,39 @@ export function ChatInterface({
 
       {/* Input */}
       <div className="border-t p-4">
+        {/* Image preview */}
+        {imagePreview && (
+          <div className="mb-2 relative inline-block">
+            <img
+              src={imagePreview}
+              alt=""
+              className="h-20 w-auto rounded-lg border object-cover"
+            />
+            <button
+              onClick={() => setImagePreview(null)}
+              className="absolute -top-2 -right-2 rounded-full bg-destructive text-destructive-foreground p-0.5 shadow-sm hover:bg-destructive/90 cursor-pointer"
+            >
+              <X className="size-3" />
+            </button>
+          </div>
+        )}
         <form onSubmit={handleSubmit} className="flex gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleImageSelect}
+            className="hidden"
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isLoading}
+            className="h-12 w-12 rounded-xl border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer disabled:opacity-50 shrink-0"
+            title={t.attachImage || "Attach image"}
+          >
+            <ImagePlus className="size-5" />
+          </button>
           <div className="relative flex-1">
             <textarea
               ref={inputRef}
@@ -326,7 +387,7 @@ export function ChatInterface({
           <Button
             type="submit"
             size="icon"
-            disabled={!input.trim() || isLoading}
+            disabled={(!input.trim() && !imagePreview) || isLoading}
             className="h-12 w-12 rounded-xl shrink-0"
           >
             {isLoading ? (

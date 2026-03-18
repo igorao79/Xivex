@@ -26,7 +26,7 @@ export function useAgentChat(persist?: PersistCallbacks) {
   /** Shared streaming logic */
   const streamResponse = useCallback(
     async (
-      chatMessages: { role: string; content: string }[],
+      chatMessages: { role: string; content: string | any[] }[],
       assistantMessage: Message
     ): Promise<Message> => {
       const response = await fetch("/api/agent-chat", {
@@ -105,14 +105,15 @@ export function useAgentChat(persist?: PersistCallbacks) {
   );
 
   const sendMessage = useCallback(
-    async (content: string) => {
-      if (!content.trim() || isLoading) return;
+    async (content: string, image?: string) => {
+      if ((!content.trim() && !image) || isLoading) return;
 
       const userMessage: Message = {
         id: `msg-${Date.now()}`,
         role: "user",
         content,
         timestamp: Date.now(),
+        image,
       };
 
       setMessages((prev) => [...prev, userMessage]);
@@ -131,10 +132,19 @@ export function useAgentChat(persist?: PersistCallbacks) {
       setMessages((prev) => [...prev, assistantMessage]);
 
       try {
-        const chatMessages = [...messages, userMessage].map((m) => ({
-          role: m.role,
-          content: m.content,
-        }));
+        // Build messages for API — convert images to multimodal content
+        const chatMessages = [...messages, userMessage].map((m) => {
+          if (m.image) {
+            return {
+              role: m.role,
+              content: [
+                ...(m.content ? [{ type: "text", text: m.content }] : []),
+                { type: "image_url", image_url: { url: m.image } },
+              ],
+            };
+          }
+          return { role: m.role, content: m.content };
+        });
 
         const finalMsg = await streamResponse(chatMessages, assistantMessage);
         persist?.onAssistantDone?.(finalMsg);

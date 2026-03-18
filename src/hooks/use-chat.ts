@@ -13,6 +13,7 @@ export interface Message {
   content: string;
   timestamp: number;
   sources?: MessageSource[];
+  image?: string; // base64 data URL for image attachments
 }
 
 export function useChat(documentId: string | null) {

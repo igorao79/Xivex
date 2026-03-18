@@ -5,6 +5,7 @@ import { searchGoogle } from "@/lib/search";
 export const maxDuration = 60;
 
 const AGENT_MODEL = "llama-3.3-70b-versatile";
+const VISION_MODEL = "llama-3.2-90b-vision-preview";
 const MAX_TOOL_ITERATIONS = 5;
 
 const tools: any[] = [
@@ -110,6 +111,15 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Detect if any message has image content (multimodal)
+    const hasImages = clientMessages.some(
+      (m: any) =>
+        Array.isArray(m.content) &&
+        m.content.some((c: any) => c.type === "image_url")
+    );
+
+    const model = hasImages ? VISION_MODEL : AGENT_MODEL;
+
     // Build messages array with system prompt
     const messages: any[] = [
       { role: "system", content: SYSTEM_PROMPT },
@@ -129,11 +139,11 @@ export async function POST(request: NextRequest) {
             iterations++;
 
             // Non-streaming call with tools
+            // Vision model doesn't support tools, so skip them for image queries
             const response = await groq.chat.completions.create({
-              model: AGENT_MODEL,
+              model,
               messages,
-              tools,
-              tool_choice: "auto",
+              ...(hasImages ? {} : { tools, tool_choice: "auto" as const }),
               temperature: 0.3,
               max_tokens: 4096,
             });

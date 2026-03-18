@@ -161,13 +161,13 @@ export default function Home() {
 
   // Auto-create conversation on first message
   const wrappedAgentSend = useCallback(
-    async (content: string) => {
+    async (content: string, image?: string) => {
       if (!activeId) {
         const newId = await createConversation("chat");
         // Wait for activeId to update, then send
-        setTimeout(() => agentSend(content), 100);
+        setTimeout(() => agentSend(content, image), 100);
       } else {
-        agentSend(content);
+        agentSend(content, image);
       }
     },
     [activeId, createConversation, agentSend]
