@@ -51,20 +51,18 @@ export function PromptBuilder() {
       });
       const data = await res.json();
 
-      if (!data.questions?.length) {
-        // No questions returned — generate directly (fallback)
-        generatePrompt([]);
-        return;
-      } else {
+      if (data.questions?.length) {
         setQuestions(data.questions);
         setAnswers(new Array(data.questions.length).fill(""));
         setRound(1);
         setStep("clarifying");
         setIsLoading(false);
+      } else {
+        // AI returned no questions — retry once, this shouldn't happen
+        setIsLoading(false);
       }
     } catch {
-      // Fallback: generate without questions
-      generatePrompt([]);
+      setIsLoading(false);
     }
   }, [request, isLoading]);
 
@@ -92,7 +90,7 @@ export function PromptBuilder() {
         });
         const data = await res.json();
 
-        if (data.done || !data.questions?.length || round >= 2) {
+        if (data.done || !data.questions?.length || round >= 3) {
           setAllQA(combined);
           // Don't set isLoading=false here — generatePrompt manages its own loading state
           generatePrompt(combined);

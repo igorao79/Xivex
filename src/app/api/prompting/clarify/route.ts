@@ -8,24 +8,39 @@ interface QA {
 
 const SYSTEM_PROMPT = `You are an expert prompt engineer. The user wants to create an AI prompt for a specific task.
 
-Your job is to ask 3-5 SHORT, SPECIFIC questions that will make the difference between a mediocre and an excellent prompt.
+Your job: ask clarifying questions to gather info for building a perfect prompt.
 
-ASK ABOUT THINGS THAT MATTER:
-- For CODE tasks: ALWAYS ask about programming language/tech stack FIRST. Never assume a language. Also ask about: framework, file structure, testing requirements
-- For WRITING tasks: target audience, tone, length, format (blog/docs/email)
-- For ANALYSIS tasks: data format, expected output, depth of analysis
-- For DESIGN tasks: platform, style reference, responsive requirements
+## FIRST ROUND — MANDATORY QUESTIONS:
+You MUST always return 3-6 questions. NEVER return "done": true.
 
-CRITICAL: NEVER assume the programming language or technology. If the user says "create a calculator" — you MUST ask what language/platform they want it in. It could be Python, JavaScript, C++, a web app, a mobile app, etc.
+### For CODE/PROGRAMMING tasks (calculator, app, script, bot, etc.):
+1. FIRST question MUST be: what programming language / tech stack? (JS, Python, C++, web, mobile, etc.)
+2. What platform/environment? (browser, Node.js, desktop, mobile)
+3. What specific features/functionality?
+4. Any design/UI requirements?
+5. Error handling requirements?
+6. Testing requirements?
 
-CRITICAL RULES:
-- ALWAYS return 3-5 questions on the FIRST round. NEVER return "done": true on the first round.
-- "done": true is ONLY allowed after the user has answered at least one round of questions
-- 3-5 questions MAX per round
+### For WRITING tasks:
+1. Target audience?
+2. Tone and style?
+3. Length and format?
+
+### For ANALYSIS tasks:
+1. Data format?
+2. Expected output?
+3. Depth of analysis?
+
+## ABSOLUTE RULES:
+- NEVER assume ANY technology, language, or framework. ALWAYS ASK.
+- "create a calculator" → you MUST ask "what language?" — it could be Python, JS, C++, Rust, web app, mobile, etc.
+- ALWAYS return "done": false on every round
+- 3-6 questions per round
 - Each question = 1 SHORT sentence
-- Questions must be SPECIFIC to the task (not generic templates)
-- Respond in the SAME language as the user's request
-- Output ONLY: { "questions": ["q1", "q2", ...], "done": false }`;
+- Questions SPECIFIC to the task
+- Respond in SAME language as user's request
+- Output ONLY valid JSON: { "questions": ["q1", "q2", ...], "done": false }
+- NEVER output "done": true. The client decides when to stop.`;
 
 export async function POST(request: NextRequest) {
   try {
@@ -60,21 +75,22 @@ export async function POST(request: NextRequest) {
     const text = response.choices[0]?.message?.content?.trim() || "";
 
     try {
-      const parsed = JSON.parse(text);
+      let parsed;
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+        const match = text.match(/\{[\s\S]*\}/);
+        if (match) parsed = JSON.parse(match[0]);
+        else throw new Error("No JSON found");
+      }
+
+      const questions = Array.isArray(parsed.questions) ? parsed.questions : [];
+      // Always return done:false — the client controls when to generate
       return NextResponse.json({
-        questions: parsed.questions || [],
-        done: !!parsed.done,
+        questions,
+        done: false,
       });
     } catch {
-      // Fallback: try to extract from text
-      const match = text.match(/\{[\s\S]*\}/);
-      if (match) {
-        const parsed = JSON.parse(match[0]);
-        return NextResponse.json({
-          questions: parsed.questions || [],
-          done: !!parsed.done,
-        });
-      }
       throw new Error("Failed to parse AI response");
     }
   } catch (error) {

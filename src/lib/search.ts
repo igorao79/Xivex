@@ -40,111 +40,102 @@ function isTitleRelevant(title: string, query: string): boolean {
 }
 
 /**
- * Search via DuckDuckGo + Jina Reader — parses titles, URLs, and snippets
+ * Search via DuckDuckGo HTML — direct fetch, parse HTML results
  */
 export async function searchGoogle(
   query: string,
   limit = 8
 ): Promise<SearchResult[]> {
+  const ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+
   try {
     const q = encodeURIComponent(query);
     const res = await fetch(
-      `https://r.jina.ai/https://html.duckduckgo.com/html/?q=${q}`,
+      `https://html.duckduckgo.com/html/?q=${q}`,
       {
-        headers: { Accept: "text/plain" },
-        signal: AbortSignal.timeout(15000),
+        headers: {
+          "User-Agent": ua,
+          Accept: "text/html",
+          "Accept-Language": "en-US,en;q=0.9",
+        },
+        signal: AbortSignal.timeout(12000),
       }
     );
     if (!res.ok) return [];
 
-    const text = await res.text();
+    const html = await res.text();
     const results: SearchResult[] = [];
     const seen = new Set<string>();
 
-    // DuckDuckGo results come as [Title](duckduckgo.com/l/?uddg=encoded_url)
-    // Each result appears 3 times: title link, bare URL link, snippet link
-    // We collect them in groups
-    const linkRegex = /\[([^\]]{5,})\]\(https:\/\/duckduckgo\.com\/l\/\?uddg=([^&\s)]+)/g;
+    // Parse DuckDuckGo HTML results
+    // Results are in <a class="result__a" href="...">Title</a>
+    // Snippets are in <a class="result__snippet" ...>Text</a>
+    const resultRegex = /<a[^>]*class="result__a"[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi;
+    const snippetRegex = /<a[^>]*class="result__snippet"[^>]*>([\s\S]*?)<\/a>/gi;
 
+    // Collect all titles+urls
+    const entries: { title: string; url: string; snippet: string }[] = [];
     let match;
-    const rawEntries: { title: string; url: string; snippet: string }[] = [];
 
-    while ((match = linkRegex.exec(text)) !== null) {
-      const rawTitle = match[1].trim();
-      const encodedUrl = match[2];
+    while ((match = resultRegex.exec(html)) !== null) {
+      let href = match[1];
+      const rawTitle = match[2].replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").trim();
 
-      let url: string;
-      try {
-        url = decodeURIComponent(encodedUrl);
-      } catch {
-        continue;
+      // DDG wraps URLs: //duckduckgo.com/l/?uddg=ENCODED_URL&...
+      if (href.includes("uddg=")) {
+        const uddg = new URL("https:" + href).searchParams.get("uddg");
+        if (uddg) href = uddg;
+        else continue;
       }
 
-      // Skip DDG ad tracking URLs
-      if (url.includes("duckduckgo.com/y.js")) continue;
-      if (url.includes("duckduckgo.com")) continue;
-
       try {
-        const parsed = new URL(url);
+        const parsed = new URL(href);
         const host = parsed.hostname.replace("www.", "");
         const key = host + parsed.pathname.replace(/\/$/, "");
 
-        // Skip social media and noise
-        if (
-          host.includes("facebook.com") ||
-          host.includes("x.com") ||
-          host.includes("twitter.com") ||
-          host.includes("youtube.com") ||
-          host.includes("localhost")
-        )
+        if (host.includes("duckduckgo.com") || host.includes("facebook.com") ||
+            host.includes("x.com") || host.includes("twitter.com") || host.includes("localhost"))
           continue;
 
-        // Check if it's a title (not a bare URL, not bold snippet text)
-        const isBareUrl = rawTitle === url || rawTitle.startsWith("http") || rawTitle.startsWith("www.");
-        const isSnippet = rawTitle.includes("**") || rawTitle.length > 100;
-
-        if (isBareUrl) continue;
-
-        if (isSnippet) {
-          // This is a snippet for the previous entry
-          if (rawEntries.length > 0 && rawEntries[rawEntries.length - 1].url === url) {
-            const cleanSnippet = rawTitle
-              .replace(/\*\*/g, "")
-              .replace(/<[^>]+>/g, "")
-              .trim();
-            rawEntries[rawEntries.length - 1].snippet = cleanSnippet.substring(0, 250);
-          }
-          continue;
-        }
-
-        // It's a title
         if (seen.has(key)) continue;
         seen.add(key);
 
-        rawEntries.push({
+        entries.push({
           title: rawTitle.replace(/ - [^-]+$/, "").trim(),
-          url: url.replace(/#.*$/, "").replace(/\/$/, ""),
+          url: href.replace(/#.*$/, "").replace(/\/$/, ""),
           snippet: "",
         });
-      } catch {
-        continue;
+      } catch { continue; }
+    }
+
+    // Collect snippets
+    let snippetIdx = 0;
+    while ((match = snippetRegex.exec(html)) !== null && snippetIdx < entries.length) {
+      const snippet = match[1]
+        .replace(/<[^>]+>/g, "")
+        .replace(/&amp;/g, "&")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&quot;/g, '"')
+        .trim()
+        .substring(0, 250);
+      if (snippet) {
+        entries[snippetIdx].snippet = snippet;
       }
+      snippetIdx++;
     }
 
     // Build results
-    for (const entry of rawEntries.slice(0, limit)) {
+    for (const entry of entries.slice(0, limit)) {
       try {
-        const parsed = new URL(entry.url);
-        const host = parsed.hostname.replace("www.", "");
+        const host = new URL(entry.url).hostname.replace("www.", "");
         results.push({
           title: entry.title,
           url: entry.url,
           snippet: entry.snippet,
           source: host,
         });
-      } catch {
-        continue;
-      }
+      } catch { continue; }
     }
 
     return results;

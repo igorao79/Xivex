@@ -56,19 +56,73 @@ IMPORTANT RULES:
 7. For simple factual questions (math, definitions you're certain about) you may answer directly.
 8. When searching, use English queries for best results, but ALWAYS respond in the user's language.`;
 
-/** Fetch a page's text content via Jina Reader */
+/** Strip HTML tags and extract readable text */
+function htmlToText(html: string): string {
+  // Remove script, style, nav, footer, header elements
+  let text = html
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<nav[\s\S]*?<\/nav>/gi, "")
+    .replace(/<footer[\s\S]*?<\/footer>/gi, "")
+    .replace(/<header[\s\S]*?<\/header>/gi, "")
+    .replace(/<aside[\s\S]*?<\/aside>/gi, "");
+  // Replace block elements with newlines
+  text = text.replace(/<\/?(p|div|br|h[1-6]|li|tr|td|th|blockquote|section|article)[^>]*>/gi, "\n");
+  // Remove remaining tags
+  text = text.replace(/<[^>]+>/g, " ");
+  // Decode HTML entities
+  text = text
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#x27;/g, "'")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)));
+  // Clean whitespace
+  text = text.replace(/[ \t]+/g, " ").replace(/\n\s*\n/g, "\n\n").trim();
+  return text;
+}
+
+/** Fetch a page's text content — direct fetch with HTML stripping */
 async function readPage(url: string): Promise<string> {
+  const ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+
+  // Try direct fetch first
   try {
-    const res = await fetch(`https://r.jina.ai/${url}`, {
-      headers: { Accept: "text/plain" },
-      signal: AbortSignal.timeout(15000),
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": ua,
+        Accept: "text/html,application/xhtml+xml,*/*",
+        "Accept-Language": "en-US,en;q=0.9,ru;q=0.8",
+      },
+      signal: AbortSignal.timeout(10000),
+      redirect: "follow",
     });
-    if (!res.ok) return `Error: Could not read page (${res.status})`;
-    const text = await res.text();
-    return text.slice(0, 8000);
-  } catch {
-    return "Error: Page read timed out or failed";
-  }
+    if (res.ok) {
+      const html = await res.text();
+      const text = htmlToText(html);
+      if (text.length > 200) return text.slice(0, 8000);
+    }
+  } catch {}
+
+  // Fallback: Google webcache
+  try {
+    const cacheUrl = `https://webcache.googleusercontent.com/search?q=cache:${encodeURIComponent(url)}`;
+    const res = await fetch(cacheUrl, {
+      headers: { "User-Agent": ua },
+      signal: AbortSignal.timeout(10000),
+      redirect: "follow",
+    });
+    if (res.ok) {
+      const html = await res.text();
+      const text = htmlToText(html);
+      if (text.length > 200) return text.slice(0, 8000);
+    }
+  } catch {}
+
+  return "Error: Could not read page content";
 }
 
 /** Execute a tool call and return the result */

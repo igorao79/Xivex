@@ -38,7 +38,8 @@ Bullet list of DO and DON'T. Handle error cases explicitly.
 - DO NOT wrap the output in a code block
 - Start with: # [Short descriptive title]
 - DO NOT include sections that add no value (e.g. empty "Tone" sections for technical tasks)
-- For coding tasks: specify file structure, tech stack, and include a code example of the expected style`;
+- For coding tasks: specify file structure, tech stack, and include a code example of the expected style
+- CRITICAL: Use ONLY the language/technology specified in the user's answers. NEVER default to Python or any other language unless explicitly stated`;
 
 function sseEvent(data: string): string {
   return `data: ${data}\n\n`;
