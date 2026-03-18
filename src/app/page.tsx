@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
 import { motion } from "motion/react";
-import { FileSearch, MessageSquare, Bot } from "lucide-react";
+import { FileSearch, MessageSquare, Bot, Wand2 } from "lucide-react";
 import Image from "next/image";
 import { AnimatedTabs } from "@/components/animated-tabs";
 import { FileUpload } from "@/components/file-upload";
@@ -18,9 +18,10 @@ import { useChat } from "@/hooks/use-chat";
 import { useAgentChat } from "@/hooks/use-agent-chat";
 import { useConversations } from "@/hooks/use-conversations";
 import { useI18n } from "@/lib/i18n";
+import { PromptBuilder } from "@/components/prompt-builder";
 import { parseFileClientSide } from "@/lib/client-parsers";
 
-type AppMode = "analysis" | "chat";
+type AppMode = "analysis" | "chat" | "prompting";
 
 interface DocumentState {
   id: string;
@@ -332,6 +333,17 @@ export default function Home() {
                 <Bot className="size-3.5" />
                 <span className="hidden sm:inline">{t.modeChat}</span>
               </button>
+              <button
+                onClick={() => setAppMode("prompting")}
+                className={`flex items-center gap-1.5 rounded-md px-2 py-1 sm:px-3 sm:py-1.5 text-sm font-medium transition-all duration-200 cursor-pointer ${
+                  appMode === "prompting"
+                    ? "bg-primary text-primary-foreground shadow-sm shadow-primary/25"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                }`}
+              >
+                <Wand2 className="size-3.5" />
+                <span className="hidden sm:inline">{t.modePrompting}</span>
+              </button>
             </div>
           </div>
 
@@ -368,7 +380,18 @@ export default function Home() {
 
       {/* Main content */}
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6">
-        {appMode === "chat" ? (
+        {appMode === "prompting" ? (
+          /* Prompting mode */
+          <motion.div
+            key="prompting"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, ease: "easeOut" }}
+            className="py-4"
+          >
+            <PromptBuilder />
+          </motion.div>
+        ) : appMode === "chat" ? (
           /* Agent chat mode */
           <motion.div
             key="agent-chat"
