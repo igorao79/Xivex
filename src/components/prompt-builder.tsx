@@ -53,18 +53,18 @@ export function PromptBuilder() {
 
       if (!data.questions?.length) {
         // No questions returned — generate directly (fallback)
-        await generatePrompt([]);
+        generatePrompt([]);
+        return;
       } else {
         setQuestions(data.questions);
         setAnswers(new Array(data.questions.length).fill(""));
         setRound(1);
         setStep("clarifying");
+        setIsLoading(false);
       }
     } catch {
       // Fallback: generate without questions
-      await generatePrompt([]);
-    } finally {
-      setIsLoading(false);
+      generatePrompt([]);
     }
   }, [request, isLoading]);
 
@@ -82,7 +82,6 @@ export function PromptBuilder() {
 
     try {
       if (round < 3) {
-        // Ask for more questions
         const res = await fetch("/api/prompting/clarify", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -94,24 +93,26 @@ export function PromptBuilder() {
         const data = await res.json();
 
         if (data.done || !data.questions?.length || round >= 2) {
-          // Done clarifying
           setAllQA(combined);
-          await generatePrompt(combined);
+          // Don't set isLoading=false here — generatePrompt manages its own loading state
+          generatePrompt(combined);
+          return;
         } else {
           setAllQA(combined);
           setQuestions(data.questions);
           setAnswers(new Array(data.questions.length).fill(""));
           setRound((r) => r + 1);
+          setIsLoading(false);
         }
       } else {
         setAllQA(combined);
-        await generatePrompt(combined);
+        generatePrompt(combined);
+        return;
       }
     } catch {
       setAllQA(combined);
-      await generatePrompt(combined);
-    } finally {
-      setIsLoading(false);
+      generatePrompt(combined);
+      return;
     }
   }, [questions, answers, allQA, round, request, isLoading]);
 
