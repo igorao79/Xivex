@@ -49,8 +49,8 @@ Today's date: ${new Date().toISOString().split("T")[0]}.
 
 CRITICAL WORKFLOW — you MUST follow this for EVERY question:
 1. SEARCH first: For ANY question, use web_search to find relevant results.
-2. READ pages: After searching, you MUST use read_page on 2-3 of the most relevant URLs to get ACTUAL content. NEVER just list search result titles — that is useless to the user.
-3. SYNTHESIZE: After reading pages, write a detailed answer with SPECIFIC facts, numbers, names, dates from the pages you read.
+2. READ pages: After searching, you MUST use read_page on 2-3 of the most relevant URLs to get ACTUAL content. NEVER just list search result titles — that is useless to the user. If read_page returns an error, try another URL from the search results.
+3. SYNTHESIZE: After reading pages, write a detailed answer with SPECIFIC facts, numbers, names, dates from the pages you read. Include concrete details — headlines, statistics, quotes.
 
 RULES:
 - NEVER just list website names like "visit BBC, CNN, Reuters". The user wants YOU to read those sites and tell them the actual news.
@@ -91,11 +91,27 @@ function htmlToText(html: string): string {
   return text;
 }
 
-/** Fetch a page's text content — direct fetch with HTML stripping */
+/** Fetch a page's text content using multiple strategies */
 async function readPage(url: string): Promise<string> {
   const ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
-  // Try direct fetch first
+  // Strategy 1: Jina Reader — most reliable for news sites
+  try {
+    const res = await fetch(`https://r.jina.ai/${url}`, {
+      headers: {
+        Accept: "text/plain",
+        "X-Return-Format": "text",
+        "X-No-Cache": "true",
+      },
+      signal: AbortSignal.timeout(15000),
+    });
+    if (res.ok) {
+      const text = await res.text();
+      if (text.length > 200) return text.slice(0, 10000);
+    }
+  } catch {}
+
+  // Strategy 2: Direct fetch with HTML stripping
   try {
     const res = await fetch(url, {
       headers: {
@@ -109,11 +125,11 @@ async function readPage(url: string): Promise<string> {
     if (res.ok) {
       const html = await res.text();
       const text = htmlToText(html);
-      if (text.length > 200) return text.slice(0, 8000);
+      if (text.length > 200) return text.slice(0, 10000);
     }
   } catch {}
 
-  // Fallback: Google webcache
+  // Strategy 3: Google webcache
   try {
     const cacheUrl = `https://webcache.googleusercontent.com/search?q=cache:${encodeURIComponent(url)}`;
     const res = await fetch(cacheUrl, {
@@ -124,11 +140,11 @@ async function readPage(url: string): Promise<string> {
     if (res.ok) {
       const html = await res.text();
       const text = htmlToText(html);
-      if (text.length > 200) return text.slice(0, 8000);
+      if (text.length > 200) return text.slice(0, 10000);
     }
   } catch {}
 
-  return "Error: Could not read page content";
+  return "Error: Could not read page content. Try a different URL.";
 }
 
 /** Execute a tool call and return the result */
