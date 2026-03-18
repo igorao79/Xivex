@@ -1,5 +1,5 @@
-// Search module — Google search via Jina Reader + Wikimedia Commons for images
-// No API keys needed
+// Search module — Tavily AI search + Wikimedia Commons for images
+import { tavily } from "@tavily/core";
 
 export interface SearchResult {
   title: string;
@@ -39,10 +39,30 @@ function isTitleRelevant(title: string, query: string): boolean {
   return matched >= Math.ceil(queryWords.length / 2);
 }
 
-/**
- * Search via SearXNG — uses SEARXNG_URL env var (your own instance)
- * or falls back to public instances
- */
+/** Get Tavily client */
+function getTavilyClient() {
+  const apiKey = process.env.TAVILY_API_KEY;
+  if (!apiKey) return null;
+  return tavily({ apiKey });
+}
+
+/** Extract readable content from a URL via Tavily */
+export async function extractPageContent(urls: string[]): Promise<string[]> {
+  const client = getTavilyClient();
+  if (!client) return urls.map(() => "Error: TAVILY_API_KEY not configured");
+
+  try {
+    const result = await client.extract(urls);
+    return result.results.map((r: any) => {
+      const text = r.rawContent || r.text || "";
+      return text.slice(0, 10000);
+    });
+  } catch {
+    return urls.map(() => "Error: Could not extract page content");
+  }
+}
+
+// Legacy parsers kept as fallback
 /** Parse search results from SearXNG HTML page */
 function parseSearXNGHtml(html: string, limit: number): SearchResult[] {
   const results: SearchResult[] = [];
@@ -149,71 +169,47 @@ export async function searchGoogle(
   query: string,
   limit = 8
 ): Promise<SearchResult[]> {
-  // 1. Try SearXNG instances (JSON first, then HTML)
-  const instances = [
-    process.env.SEARXNG_URL,
-    "https://search.sapti.me",
-    "https://priv.au",
-    "https://searxng.site",
-  ].filter(Boolean) as string[];
-
-  for (const instance of instances) {
-    // Try JSON format first
+  // 1. Tavily — best quality, includes content snippets
+  const client = getTavilyClient();
+  if (client) {
     try {
-      const params = new URLSearchParams({
-        q: query, format: "json", language: "auto", safesearch: "0",
+      const response = await client.search(query, {
+        searchDepth: "advanced",
+        maxResults: limit,
+        includeAnswer: false,
       });
-      const res = await fetch(`${instance}/search?${params}`, {
-        headers: { Accept: "application/json", "User-Agent": UA },
-        signal: AbortSignal.timeout(10000),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.results?.length) {
-          const results: SearchResult[] = [];
-          const seen = new Set<string>();
-          for (const r of data.results) {
-            if (!r.url || !r.title) continue;
-            try {
-              const parsed = new URL(r.url);
-              const host = parsed.hostname.replace("www.", "");
-              const key = host + parsed.pathname.replace(/\/$/, "");
-              if (host.includes("facebook.com") || host.includes("x.com") ||
-                  host.includes("twitter.com")) continue;
-              if (seen.has(key)) continue;
-              seen.add(key);
-              results.push({
-                title: r.title.replace(/<[^>]+>/g, "").trim(),
-                url: r.url,
-                snippet: (r.content || "").replace(/<[^>]+>/g, "").trim().substring(0, 250),
-                source: host,
-              });
-              if (results.length >= limit) break;
-            } catch { continue; }
-          }
-          if (results.length > 0) return results;
+
+      if (response.results?.length) {
+        const results: SearchResult[] = [];
+        const seen = new Set<string>();
+
+        for (const r of response.results) {
+          if (!r.url || !r.title) continue;
+          try {
+            const parsed = new URL(r.url);
+            const host = parsed.hostname.replace("www.", "");
+            const key = host + parsed.pathname.replace(/\/$/, "");
+            if (seen.has(key)) continue;
+            seen.add(key);
+
+            results.push({
+              title: r.title,
+              url: r.url,
+              snippet: (r.content || "").substring(0, 300),
+              source: host,
+            });
+            if (results.length >= limit) break;
+          } catch { continue; }
         }
-      }
-    } catch {}
 
-    // Fallback: parse HTML from same SearXNG instance
-    try {
-      const params = new URLSearchParams({
-        q: query, language: "auto", safesearch: "0",
-      });
-      const res = await fetch(`${instance}/search?${params}`, {
-        headers: { Accept: "text/html", "User-Agent": UA },
-        signal: AbortSignal.timeout(10000),
-      });
-      if (res.ok) {
-        const html = await res.text();
-        const results = parseSearXNGHtml(html, limit);
         if (results.length > 0) return results;
       }
-    } catch {}
+    } catch (err) {
+      console.error("Tavily search error:", err);
+    }
   }
 
-  // 2. DuckDuckGo HTML as last resort
+  // 2. DuckDuckGo HTML as fallback
   try {
     const q = encodeURIComponent(query);
     const res = await fetch(`https://html.duckduckgo.com/html/?q=${q}`, {

@@ -17,6 +17,7 @@
     "@auth/core": "^0.41.0",
     "@libsql/client": "^0.17.0",
     "@tailwindcss/postcss": "^4.2.1",
+    "@tavily/core": "^0.7.2",
     "@types/node": "^25.4.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",

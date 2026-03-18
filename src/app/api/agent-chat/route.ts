@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import groq from "@/lib/groq";
-import { searchGoogle } from "@/lib/search";
+import { searchGoogle, extractPageContent } from "@/lib/search";
 
 export const maxDuration = 60;
 
@@ -91,18 +91,20 @@ function htmlToText(html: string): string {
   return text;
 }
 
-/** Fetch a page's text content using multiple strategies */
+/** Fetch a page's text content */
 async function readPage(url: string): Promise<string> {
-  const ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+  // Strategy 1: Tavily Extract — best quality
+  try {
+    const results = await extractPageContent([url]);
+    if (results[0] && results[0].length > 200 && !results[0].startsWith("Error:")) {
+      return results[0];
+    }
+  } catch {}
 
-  // Strategy 1: Jina Reader — most reliable for news sites
+  // Strategy 2: Jina Reader
   try {
     const res = await fetch(`https://r.jina.ai/${url}`, {
-      headers: {
-        Accept: "text/plain",
-        "X-Return-Format": "text",
-        "X-No-Cache": "true",
-      },
+      headers: { Accept: "text/plain", "X-Return-Format": "text", "X-No-Cache": "true" },
       signal: AbortSignal.timeout(15000),
     });
     if (res.ok) {
@@ -111,13 +113,12 @@ async function readPage(url: string): Promise<string> {
     }
   } catch {}
 
-  // Strategy 2: Direct fetch with HTML stripping
+  // Strategy 3: Direct fetch + HTML stripping
   try {
     const res = await fetch(url, {
       headers: {
-        "User-Agent": ua,
-        Accept: "text/html,application/xhtml+xml,*/*",
-        "Accept-Language": "en-US,en;q=0.9,ru;q=0.8",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36",
+        Accept: "text/html,*/*",
       },
       signal: AbortSignal.timeout(10000),
       redirect: "follow",
@@ -129,22 +130,7 @@ async function readPage(url: string): Promise<string> {
     }
   } catch {}
 
-  // Strategy 3: Google webcache
-  try {
-    const cacheUrl = `https://webcache.googleusercontent.com/search?q=cache:${encodeURIComponent(url)}`;
-    const res = await fetch(cacheUrl, {
-      headers: { "User-Agent": ua },
-      signal: AbortSignal.timeout(10000),
-      redirect: "follow",
-    });
-    if (res.ok) {
-      const html = await res.text();
-      const text = htmlToText(html);
-      if (text.length > 200) return text.slice(0, 10000);
-    }
-  } catch {}
-
-  return "Error: Could not read page content. Try a different URL.";
+  return "Error: Could not read page. Try a different URL.";
 }
 
 /** Execute a tool call and return the result */
