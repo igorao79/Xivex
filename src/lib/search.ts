@@ -39,109 +39,78 @@ function isTitleRelevant(title: string, query: string): boolean {
   return matched >= Math.ceil(queryWords.length / 2);
 }
 
+/** Public SearXNG instances that return JSON */
+const SEARXNG_INSTANCES = [
+  "https://search.sapti.me",
+  "https://searxng.site",
+  "https://search.bus-hit.me",
+  "https://priv.au",
+];
+
 /**
- * Search via DuckDuckGo HTML — direct fetch, parse HTML results
+ * Search via SearXNG public instances — returns structured JSON results
+ * Falls back through multiple instances if one is down
  */
 export async function searchGoogle(
   query: string,
   limit = 8
 ): Promise<SearchResult[]> {
-  const ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+  for (const instance of SEARXNG_INSTANCES) {
+    try {
+      const params = new URLSearchParams({
+        q: query,
+        format: "json",
+        language: "auto",
+        safesearch: "0",
+      });
 
-  try {
-    const q = encodeURIComponent(query);
-    const res = await fetch(
-      `https://html.duckduckgo.com/html/?q=${q}`,
-      {
+      const res = await fetch(`${instance}/search?${params}`, {
         headers: {
-          "User-Agent": ua,
-          Accept: "text/html",
-          "Accept-Language": "en-US,en;q=0.9",
+          Accept: "application/json",
+          "User-Agent": "Xivex/1.0",
         },
-        signal: AbortSignal.timeout(12000),
+        signal: AbortSignal.timeout(8000),
+      });
+
+      if (!res.ok) continue;
+
+      const data = await res.json();
+      if (!data.results?.length) continue;
+
+      const results: SearchResult[] = [];
+      const seen = new Set<string>();
+
+      for (const r of data.results) {
+        if (!r.url || !r.title) continue;
+
+        try {
+          const parsed = new URL(r.url);
+          const host = parsed.hostname.replace("www.", "");
+          const key = host + parsed.pathname.replace(/\/$/, "");
+
+          if (host.includes("facebook.com") || host.includes("x.com") ||
+              host.includes("twitter.com") || host.includes("localhost"))
+            continue;
+
+          if (seen.has(key)) continue;
+          seen.add(key);
+
+          results.push({
+            title: r.title.replace(/<[^>]+>/g, "").trim(),
+            url: r.url,
+            snippet: (r.content || "").replace(/<[^>]+>/g, "").trim().substring(0, 250),
+            source: host,
+          });
+
+          if (results.length >= limit) break;
+        } catch { continue; }
       }
-    );
-    if (!res.ok) return [];
 
-    const html = await res.text();
-    const results: SearchResult[] = [];
-    const seen = new Set<string>();
-
-    // Parse DuckDuckGo HTML results
-    // Results are in <a class="result__a" href="...">Title</a>
-    // Snippets are in <a class="result__snippet" ...>Text</a>
-    const resultRegex = /<a[^>]*class="result__a"[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi;
-    const snippetRegex = /<a[^>]*class="result__snippet"[^>]*>([\s\S]*?)<\/a>/gi;
-
-    // Collect all titles+urls
-    const entries: { title: string; url: string; snippet: string }[] = [];
-    let match;
-
-    while ((match = resultRegex.exec(html)) !== null) {
-      let href = match[1];
-      const rawTitle = match[2].replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").trim();
-
-      // DDG wraps URLs: //duckduckgo.com/l/?uddg=ENCODED_URL&...
-      if (href.includes("uddg=")) {
-        const uddg = new URL("https:" + href).searchParams.get("uddg");
-        if (uddg) href = uddg;
-        else continue;
-      }
-
-      try {
-        const parsed = new URL(href);
-        const host = parsed.hostname.replace("www.", "");
-        const key = host + parsed.pathname.replace(/\/$/, "");
-
-        if (host.includes("duckduckgo.com") || host.includes("facebook.com") ||
-            host.includes("x.com") || host.includes("twitter.com") || host.includes("localhost"))
-          continue;
-
-        if (seen.has(key)) continue;
-        seen.add(key);
-
-        entries.push({
-          title: rawTitle.replace(/ - [^-]+$/, "").trim(),
-          url: href.replace(/#.*$/, "").replace(/\/$/, ""),
-          snippet: "",
-        });
-      } catch { continue; }
-    }
-
-    // Collect snippets
-    let snippetIdx = 0;
-    while ((match = snippetRegex.exec(html)) !== null && snippetIdx < entries.length) {
-      const snippet = match[1]
-        .replace(/<[^>]+>/g, "")
-        .replace(/&amp;/g, "&")
-        .replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">")
-        .replace(/&quot;/g, '"')
-        .trim()
-        .substring(0, 250);
-      if (snippet) {
-        entries[snippetIdx].snippet = snippet;
-      }
-      snippetIdx++;
-    }
-
-    // Build results
-    for (const entry of entries.slice(0, limit)) {
-      try {
-        const host = new URL(entry.url).hostname.replace("www.", "");
-        results.push({
-          title: entry.title,
-          url: entry.url,
-          snippet: entry.snippet,
-          source: host,
-        });
-      } catch { continue; }
-    }
-
-    return results;
-  } catch {
-    return [];
+      if (results.length > 0) return results;
+    } catch { continue; }
   }
+
+  return [];
 }
 
 /**

@@ -38,7 +38,7 @@ You MUST always return 3-6 questions. NEVER return "done": true.
 - 3-6 questions per round
 - Each question = 1 SHORT sentence
 - Questions SPECIFIC to the task
-- Respond in SAME language as user's request
+- **CRITICAL: Respond in the EXACT SAME language as the user's request. If they write in Russian — ALL questions must be in Russian. If in English — in English. NEVER mix languages.**
 - Output ONLY valid JSON: { "questions": ["q1", "q2", ...], "done": false }
 - NEVER output "done": true. The client decides when to stop.`;
 
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Request required" }, { status: 400 });
     }
 
-    let userContent = `Task request: "${userRequest}"`;
+    let userContent = `Task request: "${userRequest}"\n\nIMPORTANT: Write ALL questions in the SAME language as the task request above.`;
 
     if (previousAnswers && previousAnswers.length > 0) {
       userContent += "\n\nPrevious Q&A:\n";
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
         userContent += `Q${i + 1}: ${qa.question}\nA${i + 1}: ${qa.answer}\n`;
       });
       userContent +=
-        "\nBased on this info, do you have enough to build a great prompt? If yes, return done:true. If not, ask 2-3 more focused questions.";
+        "\nAsk 2-3 more focused follow-up questions IN THE SAME LANGUAGE as the original request.";
     }
 
     const response = await groq.chat.completions.create({
