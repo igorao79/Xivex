@@ -51,8 +51,8 @@ export function PromptBuilder() {
       });
       const data = await res.json();
 
-      if (data.done || !data.questions?.length) {
-        // AI has enough info, skip to generation
+      if (!data.questions?.length) {
+        // No questions returned — generate directly (fallback)
         await generatePrompt([]);
       } else {
         setQuestions(data.questions);

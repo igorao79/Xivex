@@ -19,14 +19,14 @@ ASK ABOUT THINGS THAT MATTER:
 
 DO NOT ask generic questions like "What tone?" for a coding task. Be smart about what matters for THIS specific request.
 
-Rules:
+CRITICAL RULES:
+- ALWAYS return 3-5 questions on the FIRST round. NEVER return "done": true on the first round.
+- "done": true is ONLY allowed after the user has answered at least one round of questions
 - 3-5 questions MAX per round
 - Each question = 1 SHORT sentence
 - Questions must be SPECIFIC to the task (not generic templates)
-- If the user provided a lot of detail already, ask fewer questions
 - Respond in the SAME language as the user's request
-- Output ONLY: { "questions": ["q1", "q2", ...], "done": false }
-- Set "done": true if you already have enough info (rare on first round)`;
+- Output ONLY: { "questions": ["q1", "q2", ...], "done": false }`;
 
 export async function POST(request: NextRequest) {
   try {
