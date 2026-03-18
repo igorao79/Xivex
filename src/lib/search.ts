@@ -39,23 +39,23 @@ function isTitleRelevant(title: string, query: string): boolean {
   return matched >= Math.ceil(queryWords.length / 2);
 }
 
-/** Public SearXNG instances that return JSON */
-const SEARXNG_INSTANCES = [
-  "https://search.sapti.me",
-  "https://searxng.site",
-  "https://search.bus-hit.me",
-  "https://priv.au",
-];
-
 /**
- * Search via SearXNG public instances — returns structured JSON results
- * Falls back through multiple instances if one is down
+ * Search via SearXNG — uses SEARXNG_URL env var (your own instance)
+ * or falls back to public instances
  */
 export async function searchGoogle(
   query: string,
   limit = 8
 ): Promise<SearchResult[]> {
-  for (const instance of SEARXNG_INSTANCES) {
+  // Your own SearXNG instance first, then public fallbacks
+  const instances = [
+    process.env.SEARXNG_URL,
+    "https://search.sapti.me",
+    "https://priv.au",
+    "https://searxng.site",
+  ].filter(Boolean) as string[];
+
+  for (const instance of instances) {
     try {
       const params = new URLSearchParams({
         q: query,
@@ -67,9 +67,9 @@ export async function searchGoogle(
       const res = await fetch(`${instance}/search?${params}`, {
         headers: {
           Accept: "application/json",
-          "User-Agent": "Xivex/1.0",
+          "User-Agent": "Mozilla/5.0 (compatible; Xivex/1.0)",
         },
-        signal: AbortSignal.timeout(8000),
+        signal: AbortSignal.timeout(10000),
       });
 
       if (!res.ok) continue;
