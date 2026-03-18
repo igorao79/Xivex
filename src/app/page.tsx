@@ -138,10 +138,19 @@ export default function Home() {
       .catch(() => {});
   }, [locale]);
 
+  // Track whether we just created a new conversation (skip loading/clearing)
+  const justCreatedRef = useRef(false);
+
   // Load messages when active conversation changes
   useEffect(() => {
     if (!activeId) {
       agentClear();
+      return;
+    }
+
+    // Skip load if we just created this conversation — messages are already in state
+    if (justCreatedRef.current) {
+      justCreatedRef.current = false;
       return;
     }
 
@@ -159,8 +168,7 @@ export default function Home() {
   const wrappedAgentSend = useCallback(
     async (content: string, image?: string) => {
       if (!activeId) {
-        // createConversation sets activeId via setState AND returns the id
-        // We use the ref approach so persist callbacks see the new id immediately
+        justCreatedRef.current = true;
         await createConversation("chat");
         // Give React a tick to flush the state update into the ref
         await new Promise((r) => setTimeout(r, 0));
