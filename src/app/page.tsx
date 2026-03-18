@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
 import { motion } from "motion/react";
 import { FileSearch, MessageSquare, Bot } from "lucide-react";
@@ -64,17 +64,25 @@ export default function Home() {
     document?.id || null
   );
 
+  // Use ref to always have latest activeId in callbacks
+  const activeIdRef = useRef(activeId);
+  activeIdRef.current = activeId;
+
+  const conversationsRef = useRef(conversations);
+  conversationsRef.current = conversations;
+
   // Persistence callbacks for agent chat
   const persist = useMemo(
     () => ({
       onUserMessage: async (msg: { id: string; role: string; content: string }) => {
-        if (!activeId) return;
-        saveMessage(activeId, msg);
+        const id = activeIdRef.current;
+        if (!id) return;
+        saveMessage(id, msg);
         // Auto-title: generate AI title from first user message
-        const conv = conversations.find((c) => c.id === activeId);
+        const conv = conversationsRef.current.find((c) => c.id === id);
         if (conv && (conv.title === "New chat" || conv.title === "Новый чат")) {
           // Set temporary title immediately, then replace with AI title
-          updateTitle(activeId, msg.content.slice(0, 30) + "…");
+          updateTitle(id, msg.content.slice(0, 30) + "…");
           fetch("/api/conversations/title", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -82,7 +90,7 @@ export default function Home() {
           })
             .then((res) => res.json())
             .then((data) => {
-              if (data.title) updateTitle(activeId, data.title);
+              if (data.title) updateTitle(id, data.title);
             })
             .catch(() => {});
         }
@@ -93,8 +101,9 @@ export default function Home() {
         content: string;
         sources?: { title: string; url: string }[];
       }) => {
-        if (!activeId) return;
-        saveMessage(activeId, msg);
+        const id = activeIdRef.current;
+        if (!id) return;
+        saveMessage(id, msg);
       },
     }),
     [activeId, conversations, saveMessage, updateTitle]
@@ -146,29 +155,17 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeId]);
 
-  // Create a new conversation when user sends first message without an active one
-  const handleAgentSend = useCallback(
-    async (content: string) => {
-      if (!activeId) {
-        const newId = await createConversation("chat");
-        // Small delay to let state update
-        await new Promise((r) => setTimeout(r, 50));
-      }
-      agentSend(content);
-    },
-    [activeId, createConversation, agentSend]
-  );
-
   // Auto-create conversation on first message
   const wrappedAgentSend = useCallback(
     async (content: string, image?: string) => {
       if (!activeId) {
-        const newId = await createConversation("chat");
-        // Wait for activeId to update, then send
-        setTimeout(() => agentSend(content, image), 100);
-      } else {
-        agentSend(content, image);
+        // createConversation sets activeId via setState AND returns the id
+        // We use the ref approach so persist callbacks see the new id immediately
+        await createConversation("chat");
+        // Give React a tick to flush the state update into the ref
+        await new Promise((r) => setTimeout(r, 0));
       }
+      agentSend(content, image);
     },
     [activeId, createConversation, agentSend]
   );

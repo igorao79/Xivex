@@ -6,8 +6,8 @@ export async function GET(request: NextRequest) {
   const locale = request.nextUrl.searchParams.get("locale") || "ru";
 
   try {
-    // Fetch trending topics from web
-    const results = await searchGoogle("trending topics today technology AI 2026", 8);
+    // Fetch trending topics from diverse sources
+    const results = await searchGoogle("trending news today world science technology culture sports", 10);
     const context = results
       .map((r) => `${r.title}: ${r.snippet}`)
       .join("\n")
@@ -18,14 +18,21 @@ export async function GET(request: NextRequest) {
       messages: [
         {
           role: "system",
-          content: `Based on the trending topics below, generate exactly 4 short interesting questions (max 6-8 words each) that a user might want to ask an AI assistant. Questions should be diverse: mix tech, science, world events, and practical topics. Output ONLY a JSON array of 4 strings, nothing else. Language: ${locale === "ru" ? "Russian" : "English"}.`,
+          content: `Based on the trending topics below, generate exactly 4 short interesting questions (max 6-8 words each) that a user might want to ask an AI assistant.
+
+IMPORTANT RULES:
+- Questions MUST be diverse — each question on a DIFFERENT topic (e.g. one about world news, one about science, one about culture/lifestyle, one about tech)
+- Do NOT make all questions about AI or technology
+- Questions should feel fresh and topical, based on what's trending right now
+- Output ONLY a JSON array of 4 strings, nothing else
+- Language: ${locale === "ru" ? "Russian" : "English"}`,
         },
         {
           role: "user",
-          content: `Trending topics:\n${context}`,
+          content: `Today's trending topics:\n${context}`,
         },
       ],
-      temperature: 0.8,
+      temperature: 0.9,
       max_tokens: 200,
     });
 
@@ -50,16 +57,16 @@ export async function GET(request: NextRequest) {
     const fallback =
       locale === "ru"
         ? [
-            "Какие последние новости в мире технологий?",
-            "Сравни React и Vue в 2026 году",
-            "Объясни квантовые вычисления простыми словами",
-            "Какие тренды в AI сейчас?",
+            "Что происходит в мире сегодня?",
+            "Какие научные открытия были недавно?",
+            "Посоветуй фильм для вечера",
+            "Как улучшить продуктивность?",
           ]
         : [
-            "What are the latest tech news?",
-            "Compare React vs Vue in 2026",
-            "Explain quantum computing in simple terms",
-            "What are the current AI trends?",
+            "What's happening in the world today?",
+            "What recent scientific discoveries were made?",
+            "Recommend a movie for tonight",
+            "How to improve productivity?",
           ];
 
     return NextResponse.json({ questions: fallback });
