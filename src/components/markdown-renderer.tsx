@@ -6,6 +6,7 @@ import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { Copy, Check } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { Components } from "react-markdown";
 
 function CodeCopyButton({ code }: { code: string }) {
@@ -110,25 +111,7 @@ const components: Components = {
   td: ({ children }) => (
     <td className="border-t px-4 py-2">{children}</td>
   ),
-  img: ({ src, alt }) => (
-    <span className="my-4 block">
-      <img
-        src={src}
-        alt={alt || ""}
-        loading="lazy"
-        className="rounded-lg border max-h-[300px] w-auto object-contain"
-        onError={(e) => {
-          const wrapper = (e.target as HTMLImageElement).parentElement;
-          if (wrapper) wrapper.style.display = "none";
-        }}
-      />
-      {alt && (
-        <span className="mt-1.5 block text-xs text-muted-foreground italic">
-          {alt}
-        </span>
-      )}
-    </span>
-  ),
+  img: () => null, // replaced dynamically in getComponents
   a: ({ children, href }) => (
     <a
       href={href}
@@ -146,13 +129,42 @@ const components: Components = {
 export function MarkdownRenderer({
   content,
   isStreaming,
+  onImageClick,
 }: {
   content: string;
   isStreaming?: boolean;
+  onImageClick?: (src: string) => void;
 }) {
+  const mergedComponents: Components = {
+    ...components,
+    img: ({ src, alt }) => (
+      <span className="my-4 block">
+        <img
+          src={src}
+          alt={alt || ""}
+          loading="lazy"
+          className={cn(
+            "rounded-lg border max-h-[300px] w-auto object-contain",
+            onImageClick && "cursor-zoom-in hover:opacity-90 transition-opacity"
+          )}
+          onClick={() => typeof src === "string" && onImageClick?.(src)}
+          onError={(e) => {
+            const wrapper = (e.target as HTMLImageElement).parentElement;
+            if (wrapper) wrapper.style.display = "none";
+          }}
+        />
+        {alt && (
+          <span className="mt-1.5 block text-xs text-muted-foreground italic">
+            {alt}
+          </span>
+        )}
+      </span>
+    ),
+  };
+
   return (
     <div className="prose-custom text-sm">
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={mergedComponents}>
         {content}
       </ReactMarkdown>
       {isStreaming && (

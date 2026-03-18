@@ -25,6 +25,50 @@ import type { Message, MessageSource } from "@/hooks/use-chat";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
 
+function ImageLightbox({
+  src,
+  onClose,
+}: {
+  src: string;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [onClose]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm cursor-zoom-out"
+      onClick={onClose}
+    >
+      <motion.img
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.9, opacity: 0 }}
+        transition={{ duration: 0.2 }}
+        src={src}
+        alt=""
+        className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      />
+      <button
+        onClick={onClose}
+        className="absolute top-4 right-4 rounded-full bg-black/50 p-2 text-white hover:bg-black/70 transition-colors cursor-pointer"
+      >
+        <X className="size-5" />
+      </button>
+    </motion.div>
+  );
+}
+
 export interface ToolStatusDisplay {
   type: "searching" | "reading";
   detail: string;
@@ -149,6 +193,7 @@ export function ChatInterface({
   const { t } = useI18n();
   const [input, setInput] = useState("");
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -197,6 +242,16 @@ export function ChatInterface({
 
   return (
     <div className="flex h-full flex-col">
+      {/* Image lightbox */}
+      <AnimatePresence>
+        {lightboxSrc && (
+          <ImageLightbox
+            src={lightboxSrc}
+            onClose={() => setLightboxSrc(null)}
+          />
+        )}
+      </AnimatePresence>
+
       {/* Chat header */}
       <div className="flex items-center justify-between border-b px-4 py-3">
         <div className="flex items-center gap-2">
@@ -257,7 +312,11 @@ export function ChatInterface({
                         <img
                           src={message.image}
                           alt=""
-                          className="rounded-lg max-h-[200px] w-auto object-contain mb-2"
+                          className="rounded-lg max-h-[200px] w-auto object-contain mb-2 cursor-zoom-in hover:opacity-90 transition-opacity"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setLightboxSrc(message.image!);
+                          }}
                         />
                       )}
                       {message.content && (
@@ -280,6 +339,7 @@ export function ChatInterface({
                           <MarkdownRenderer
                             content={message.content}
                             isStreaming={isLoading && idx === messages.length - 1}
+                            onImageClick={setLightboxSrc}
                           />
                         ) : toolStatus ? (
                           <div className="flex items-center gap-2">
